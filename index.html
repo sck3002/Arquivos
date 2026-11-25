@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111113">
+<meta name="theme-color" content="#fafafa">
 <meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Arquivos</title>
+<title>Notas</title>
 <style>
 :root{--bg:#111113;--bg2:#1b1b1f;--bg3:#26262b;--tx:#f2f2f4;--tx2:#9a9aa3;--ac:#4f7cff;--ln:#2c2c32;--r:10px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -86,6 +86,26 @@ input:focus{border-color:var(--ac)}
 .login .bt{width:100%;margin-top:12px;padding:14px}
 .erro{color:#ff6b6b;font-size:13px;min-height:18px;margin-top:10px}
 
+/* disfarce: bloco de notas */
+html.claro,html.claro body{background:#fafafa;color:#1d1d1f}
+.nt-topo{padding:calc(22px + env(safe-area-inset-top)) 20px 10px}
+.nt-topo h1{margin:0;font-size:32px;font-weight:700;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.nt-topo small{color:#8a8a8e;font-size:13px}
+.nt-lista{margin:6px 14px 100px;background:#fff;border-radius:12px;overflow:hidden}
+.nt-it{display:block;width:100%;text-align:left;padding:12px 16px;border-bottom:1px solid #ececf0}
+.nt-it:last-child{border-bottom:0}
+.nt-it b{display:block;font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-it span{display:block;color:#8a8a8e;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-vazio{padding:40px;text-align:center;color:#8a8a8e}
+.nt-fab{position:fixed;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:#f2b705;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.18)}
+.nt-fab svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+.nt-ed{position:fixed;inset:0;background:#fafafa;display:flex;flex-direction:column;z-index:3}
+.nt-ed .bar{display:flex;align-items:center;justify-content:space-between;padding:calc(6px + env(safe-area-inset-top)) 6px 6px;color:#c79500}
+.nt-ed .bar .ib svg{stroke:#c79500}
+.nt-ed textarea{flex:1;border:0;background:transparent;padding:8px 20px 40px;font:17px/1.45 system-ui,-apple-system,Roboto,sans-serif;color:#1d1d1f;resize:none;outline:none}
+.trava .pin{letter-spacing:10px;text-align:center;font-size:22px}
+.trava .ln{color:var(--tx2);font-size:13px;text-align:center;margin-top:14px}
+.trava .ln button{text-decoration:underline;color:var(--tx2)}
 .toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:20px;font-size:13px;z-index:50;max-width:90vw;text-align:center}
 .tela-c{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;color:var(--tx2)}
 </style>
@@ -102,11 +122,13 @@ const CFG = window.GALERIA_CONFIG || null;
 const PASTA_RAIZ = 'Arquivos';
 const PASTA_MINI = '.miniaturas';
 const ALBUM_PADRAO = 'Geral';
-const CHAVE_SESSAO = 'arq.sessao';
+const CH_SESS = 'notas.k';        // sessão do MEGA, trancada pelo PIN
+const CH_NOTAS = 'notas.itens';   // notas do disfarce
+const PIN_ITER = 200000;
 const FOTO_MAX = 2560;          // lado maior da foto reduzida (px)
 const FOTO_QUAL = 0.85;         // qualidade JPEG da foto reduzida
 const MINI_LADO = 360;          // miniatura quadrada (px)
-const CACHE_VIDEO_MAX = 150e6;  // vídeos até 150 MB ficam guardados no aparelho
+const MEM_FOTOS = 15;            // fotos mantidas só na memória (nada é gravado no aparelho)
 const RX_IMG = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
 const RX_VID = /\.(mp4|mov|m4v|webm|3gp|mkv)$/i;
 
@@ -115,7 +137,9 @@ const S = {
   miniMap: new Map(),   // nodeId -> arquivo de miniatura no MEGA
   album: null,          // pasta aberta (ou 'todos')
   lista: [], idx: 0,    // itens da grade e posição no visualizador
-  enviando: false
+  enviando: false,
+  desbloqueado: false,
+  ignorarOculto: false  // seletor de arquivos tira o app da tela sem ser "saída"
 };
 
 /* ================= utilidades ================= */
@@ -136,8 +160,10 @@ const ehMidia = f => !f.directory && (ehImg(f) || ehVid(f));
 const dataBR = ts => ts ? new Date(ts * 1000).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 const tamanho = b => b > 1e9 ? (b / 1e9).toFixed(1).replace('.', ',') + ' GB' : (b / 1e6).toFixed(0) + ' MB';
 const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64 = u8 => btoa(String.fromCharCode(...u8));
 
 function toast(msg, ms = 2800) {
+  if (!S.desbloqueado) return;   // nunca mostra aviso no disfarce
   const t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t);
@@ -155,89 +181,201 @@ function msgErro(e) {
   return 'Erro: ' + m;
 }
 
-/* ================= cache local (IndexedDB) ================= */
-const dbP = new Promise((res, rej) => {
-  const r = indexedDB.open('arquivos-cache', 1);
-  r.onupgradeneeded = () => r.result.createObjectStore('cache');
-  r.onsuccess = () => res(r.result);
-  r.onerror = () => rej(r.error);
-});
-async function cacheGet(k) {
-  try {
-    const d = await dbP;
-    return await new Promise(r => { const q = d.transaction('cache').objectStore('cache').get(k); q.onsuccess = () => r(q.result || null); q.onerror = () => r(null); });
-  } catch { return null; }
-}
+/* ================= cache só na memória ================= */
+// Nada de foto ou vídeo é gravado no aparelho: tudo some ao bloquear ou fechar o app.
+try { indexedDB.deleteDatabase('arquivos-cache'); indexedDB.deleteDatabase('nossa-galeria'); } catch {}
+try { localStorage.removeItem('arq.sessao'); localStorage.removeItem('ng.sessao'); } catch {}
+const mem = new Map();
+async function cacheGet(k) { return mem.get(k) || null; }
 async function cachePut(k, v) {
-  try {
-    const d = await dbP;
-    await new Promise(r => { const t = d.transaction('cache', 'readwrite'); t.objectStore('cache').put(v, k); t.oncomplete = r; t.onerror = r; t.onabort = r; });
-  } catch {}
+  if (k.startsWith('f:')) {
+    if (v.size > 40e6) return;                       // vídeos grandes não ficam nem na memória
+    const fotos = [...mem.keys()].filter(x => x.startsWith('f:'));
+    if (fotos.length >= MEM_FOTOS) mem.delete(fotos[0]);
+  }
+  mem.set(k, v);
 }
-async function cacheDel(k) {
-  try { const d = await dbP; await new Promise(r => { const t = d.transaction('cache', 'readwrite'); t.objectStore('cache').delete(k); t.oncomplete = r; t.onerror = r; }); } catch {}
-}
-async function cacheLimpar() {
-  try { const d = await dbP; await new Promise(r => { const t = d.transaction('cache', 'readwrite'); t.objectStore('cache').clear(); t.oncomplete = r; t.onerror = r; }); } catch {}
-}
+async function cacheDel(k) { mem.delete(k); }
+function cacheLimpar() { mem.clear(); urlsMini.forEach(u => URL.revokeObjectURL(u)); urlsMini.clear(); }
 
 /* ================= credenciais protegidas ================= */
+async function chaveDe(segredo, salt, iter) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(segredo), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
 async function abrirCredenciais(u, senha) {
-  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
-  const chave = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: b64d(u.salt), iterations: CFG.iter, hash: 'SHA-256' },
-    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const chave = await chaveDe(senha, b64d(u.salt), CFG.iter);
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(u.iv) }, chave, b64d(u.ct));
   return JSON.parse(new TextDecoder().decode(pt));
 }
-function salvarSessao() {
+async function salvarSessao(pin) {
   const j = S.storage.toJSON();
   j.options = { userAgent: null };            // nunca guarda e-mail/senha do MEGA
-  localStorage.setItem(CHAVE_SESSAO, JSON.stringify({ nome: S.nome, s: j }));
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const chave = await chaveDe(pin, salt, PIN_ITER);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, chave, new TextEncoder().encode(JSON.stringify({ nome: S.nome, s: j }))));
+  localStorage.setItem(CH_SESS, JSON.stringify({ salt: b64(salt), iv: b64(iv), ct: b64(ct), t: 0 }));
 }
-function lerSessao() {
-  try { return JSON.parse(localStorage.getItem(CHAVE_SESSAO) || 'null'); } catch { return null; }
+function temSessao() { return !!localStorage.getItem(CH_SESS); }
+async function abrirSessao(pin) {
+  const reg = JSON.parse(localStorage.getItem(CH_SESS));
+  try {
+    const chave = await chaveDe(pin, b64d(reg.salt), PIN_ITER);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(reg.iv) }, chave, b64d(reg.ct));
+    reg.t = 0; localStorage.setItem(CH_SESS, JSON.stringify(reg));
+    return JSON.parse(new TextDecoder().decode(pt));
+  } catch {
+    reg.t = (reg.t || 0) + 1;
+    if (reg.t >= 5) { localStorage.removeItem(CH_SESS); return 'bloqueado'; }
+    localStorage.setItem(CH_SESS, JSON.stringify(reg));
+    return null;
+  }
 }
 
 /* ================= inicialização ================= */
-async function iniciar() {
+function modo(m) {
+  document.documentElement.className = m;
+  document.querySelector('meta[name=theme-color]').content = m === 'claro' ? '#fafafa' : '#111113';
+}
+function iniciar() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-  if (!CFG || !CFG.usuarios?.length) {
-    app.innerHTML = `<div class="tela-c"><div>App ainda não configurado.<br><br>Abra <b>configurar.html</b>, gere o conteúdo do <b>config.js</b> e publique.</div></div>`;
-    return;
-  }
-  const sess = lerSessao();
-  if (sess) {
-    telaCarregando('Abrindo…');
-    try {
-      S.storage = Storage.fromJSON(sess.s);
-      S.nome = sess.nome;
-      await S.storage.reload();
-      await posLogin();
-      return;
-    } catch (e) {
-      console.warn(e);
-      if (/ESID|-15|ENOENT|-9|EKEY/.test(String(e?.message))) {
-        localStorage.removeItem(CHAVE_SESSAO);
-      } else {
-        app.innerHTML = `<div class="tela-c"><div>${esc(msgErro(e))}<br><br><button class="bt pri" id="tent">Tentar de novo</button></div></div>`;
-        $('#tent').onclick = () => location.reload();
-        return;
-      }
-    }
-  }
-  telaLogin();
+  history.replaceState({ t: 'notas' }, '');
+  telaNotas();
 }
 
+/* ================= disfarce: bloco de notas ================= */
+function lerNotas() {
+  try { const n = JSON.parse(localStorage.getItem(CH_NOTAS)); if (Array.isArray(n)) return n; } catch {}
+  const dia = 864e5, agora = Date.now();
+  const ini = [
+    { id: 2, c: 'Lista de compras\narroz\nfeijão\ncafé\ndetergente\npapel toalha', d: agora - dia * 2 },
+    { id: 1, c: 'Lembretes\npagar conta de luz dia 10\nlevar o carro na revisão\nrenovar seguro', d: agora - dia * 11 }
+  ];
+  localStorage.setItem(CH_NOTAS, JSON.stringify(ini));
+  return ini;
+}
+const gravarNotas = n => localStorage.setItem(CH_NOTAS, JSON.stringify(n));
+const tituloNota = n => (n.c.split('\n')[0] || '').trim() || 'Nova nota';
+const resumoNota = n => n.c.split('\n').slice(1).join(' ').trim() || 'Sem texto adicional';
+const dataCurta = ms => {
+  const d = new Date(ms), h = new Date();
+  return d.toDateString() === h.toDateString() ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('pt-BR');
+};
+function telaNotas() {
+  modo('claro');
+  const notas = lerNotas().filter(n => n.c.trim());
+  gravarNotas(notas);
+  notas.sort((a, b) => b.d - a.d);
+  app.innerHTML = `
+    <div class="nt-topo"><h1 id="ntTit">Notas</h1><small>${notas.length} ${notas.length === 1 ? 'nota' : 'notas'}</small></div>
+    ${notas.length ? `<div class="nt-lista">${notas.map(n => `<button class="nt-it" data-id="${n.id}"><b>${esc(tituloNota(n))}</b><span>${dataCurta(n.d)}  ${esc(resumoNota(n))}</span></button>`).join('')}</div>`
+      : '<div class="nt-vazio">Nenhuma nota</div>'}
+    <button class="nt-fab" id="ntNova">${ICO.mais}</button>`;
+  app.querySelectorAll('.nt-it').forEach(b => b.onclick = () => abrirNota(+b.dataset.id));
+  $('#ntNova').onclick = () => abrirNota(null);
+  // segurar o título por 2 segundos abre a parte escondida
+  const tit = $('#ntTit');
+  let tm = null;
+  const parar = () => { clearTimeout(tm); tm = null; };
+  tit.addEventListener('pointerdown', () => { parar(); tm = setTimeout(() => { tm = null; desbloquear(); }, 2000); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => tit.addEventListener(ev, parar));
+  tit.addEventListener('contextmenu', e => e.preventDefault());
+}
+function abrirNota(id) {
+  const notas = lerNotas();
+  let n = notas.find(x => x.id === id);
+  if (!n) { n = { id: Date.now(), c: '', d: Date.now() }; notas.push(n); gravarNotas(notas); }
+  history.pushState({ t: 'nota' }, '');
+  const ed = document.createElement('div');
+  ed.className = 'nt-ed';
+  ed.innerHTML = `<div class="bar"><button class="ib" id="ntVolt">${ICO.voltar}</button><button class="ib" id="ntDel">${ICO.lixo}</button></div><textarea id="ntTxt" placeholder="Escreva aqui"></textarea>`;
+  app.appendChild(ed);
+  const ta = $('#ntTxt');
+  ta.value = n.c;
+  let t;
+  const gravar = () => {
+    clearTimeout(t);
+    const ns = lerNotas(); const x = ns.find(y => y.id === n.id);
+    if (x && x.c !== ta.value) { x.c = ta.value; x.d = Date.now(); gravarNotas(ns); }
+  };
+  ta.oninput = () => { clearTimeout(t); t = setTimeout(gravar, 300); };
+  $('#ntVolt').onclick = () => { gravar(); history.back(); };
+  $('#ntDel').onclick = () => { clearTimeout(t); gravarNotas(lerNotas().filter(y => y.id !== n.id)); history.back(); };
+  if (!n.c) setTimeout(() => ta.focus(), 50);
+}
+
+/* ================= desbloqueio ================= */
+function desbloquear() {
+  if (navigator.vibrate) navigator.vibrate(20);
+  history.pushState({ t: 'trava' }, '');
+  if (!CFG || !CFG.usuarios?.length) {           // ainda sem config.js gerado
+    modo('escuro');
+    app.innerHTML = `<div class="tela-c trava"><div>Configuração ausente.<br><br>Gere o config.js em configurar.html e publique.</div></div>`;
+    return;
+  }
+  if (temSessao()) telaPin('abrir'); else telaLogin();
+}
 function telaCarregando(txt) {
-  app.innerHTML = `<div class="tela-c"><div><div class="giro"></div>${esc(txt)}</div></div>`;
+  modo('escuro');
+  app.innerHTML = `<div class="tela-c trava"><div><div class="giro"></div>${esc(txt)}</div></div>`;
+}
+function telaPin(etapa, primeiro) {
+  modo('escuro');
+  const txt = { abrir: 'Digite o PIN.', criar: 'Crie um PIN de 4 a 6 números para este aparelho.', confirmar: 'Digite o PIN de novo.' }[etapa];
+  app.innerHTML = `
+  <div class="login trava">
+    <p>${txt}</p>
+    <input type="password" id="pin" class="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
+    <button class="bt pri" id="ok">${etapa === 'abrir' ? 'Abrir' : 'Continuar'}</button>
+    <div class="erro" id="erro"></div>
+    ${etapa === 'abrir' ? '<div class="ln"><button id="esqueci">Esqueci o PIN</button></div>' : ''}
+  </div>`;
+  const campo = $('#pin');
+  campo.oninput = () => { campo.value = campo.value.replace(/\D/g, ''); };
+  setTimeout(() => campo.focus(), 60);
+  if ($('#esqueci')) $('#esqueci').onclick = () => { localStorage.removeItem(CH_SESS); telaLogin(); };
+  const ir = async () => {
+    const pin = campo.value, erro = $('#erro');
+    erro.textContent = '';
+    if (!/^\d{4,6}$/.test(pin)) { erro.textContent = 'Use de 4 a 6 números.'; return; }
+    if (etapa === 'criar') { telaPin('confirmar', pin); return; }
+    if (etapa === 'confirmar') {
+      if (pin !== primeiro) { telaPin('criar'); $('#erro').textContent = 'Os PINs não conferem. Tente de novo.'; return; }
+      $('#ok').disabled = true;
+      await salvarSessao(pin);
+      await posLogin();
+      return;
+    }
+    // abrir
+    $('#ok').disabled = true; $('#ok').textContent = 'Abrindo…';
+    const sess = await abrirSessao(pin);
+    if (sess === 'bloqueado') { telaLogin(); $('#erro').textContent = 'Muitas tentativas. Entre com a senha.'; return; }
+    if (!sess) { erro.textContent = 'PIN incorreto.'; $('#ok').disabled = false; $('#ok').textContent = 'Abrir'; campo.value = ''; campo.focus(); return; }
+    telaCarregando('Abrindo…');
+    try {
+      if (!(S.storage && S.enviando)) {           // se um envio continuou por trás, reaproveita a conexão
+        S.storage = Storage.fromJSON(sess.s);
+        await S.storage.reload();
+      }
+      S.nome = sess.nome;
+      await posLogin();
+    } catch (e) {
+      console.warn(e);
+      if (/ESID|-15|ENOENT|-9|EKEY/.test(String(e?.message))) { localStorage.removeItem(CH_SESS); telaLogin(); return; }
+      app.innerHTML = `<div class="tela-c trava"><div>${esc(msgErro(e))}<br><br><button class="bt pri" id="tent">Tentar de novo</button></div></div>`;
+      $('#tent').onclick = () => telaPin('abrir');
+    }
+  };
+  $('#ok').onclick = ir;
+  campo.onkeydown = e => { if (e.key === 'Enter') ir(); };
 }
 
 function telaLogin() {
+  modo('escuro');
   const us = CFG.usuarios;
   app.innerHTML = `
-  <div class="login">
-    <h2>Arquivos</h2>
+  <div class="login trava">
     <p>Digite sua senha.</p>
     <input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
     <button class="bt pri" id="entrar">Entrar</button>
@@ -258,8 +396,7 @@ function telaLogin() {
       cred = null;
       await S.storage.ready;
       S.nome = quem.nome;
-      salvarSessao();
-      await posLogin();
+      telaPin('criar');
     } catch (e) {
       console.warn(e);
       erro.textContent = msgErro(e);
@@ -279,10 +416,14 @@ async function posLogin() {
   reconstruirMiniMap();
 
   // atualizações em tempo real (envios feitos no outro celular)
-  let t;
-  const atualizar = () => { clearTimeout(t); t = setTimeout(() => { reconstruirMiniMap(); redesenhar(); }, 400); };
-  st.on('add', atualizar); st.on('delete', atualizar); st.on('move', atualizar); st.on('update', atualizar);
-
+  if (!st._ligado) {
+    st._ligado = true;
+    let t;
+    const atualizar = () => { clearTimeout(t); t = setTimeout(() => { if (S.storage !== st) return; reconstruirMiniMap(); redesenhar(); }, 400); };
+    st.on('add', atualizar); st.on('delete', atualizar); st.on('move', atualizar); st.on('update', atualizar);
+  }
+  S.desbloqueado = true;
+  modo('escuro');
   history.replaceState({ t: 'albuns' }, '');
   mostrarAlbuns();
 }
@@ -358,15 +499,43 @@ async function obterMidia(f, onProg) {
   const c = await cacheGet('f:' + f.nodeId);
   if (c) return c;
   const b = await baixarComProgresso(f, onProg);
-  if (ehImg(f) || b.size <= CACHE_VIDEO_MAX) cachePut('f:' + f.nodeId, b);
+  cachePut('f:' + f.nodeId, b);
   return b;
 }
+
+/* ================= bloqueio: volta ao disfarce ================= */
+function bloquear() {
+  const naTrava = !!$('.trava');
+  if (!S.desbloqueado && !naTrava) return;        // já está nas notas
+  S.desbloqueado = false;
+  tokenVis++;
+  const v = $('.vis'); if (v) { v.remove(); document.body.style.overflow = ''; }
+  if (urlAtual) { URL.revokeObjectURL(urlAtual); urlAtual = null; }
+  fecharFolha(); pendente = null;
+  $('.envio')?.remove();
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  cacheLimpar();
+  S.album = null; S.lista = [];
+  if (!S.enviando && S.storage) { S.storage.close().catch(() => {}); S.storage = null; }
+  history.replaceState({ t: 'notas' }, '');
+  telaNotas();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (!S.ignorarOculto) bloquear(); }
+  else setTimeout(() => { S.ignorarOculto = false; }, 1500);
+});
 
 /* ================= navegação (botão voltar do Android) ================= */
 function empurrar(estado) { history.pushState(estado, ''); }
 let pendente = null;   // ação a executar depois que a folha fechar
 window.addEventListener('popstate', e => {
-  const st = e.state || { t: 'albuns' };
+  const st = e.state || { t: 'notas' };
+  if (!S.desbloqueado) {                           // lado do disfarce
+    fecharFolha(); pendente = null;
+    if (st.t !== 'nota') telaNotas();
+    return;
+  }
+  if (!['albuns', 'album', 'vis'].includes(st.t)) { bloquear(); return; }   // voltar da galeria = esconder
   fecharFolha();
   if (!st.folha) {
     if (st.t !== 'vis') fecharVisualizador(true);
@@ -376,6 +545,7 @@ window.addEventListener('popstate', e => {
   if (pendente) { const p = pendente; pendente = null; p(); }
 });
 function redesenhar() {
+  if (!S.desbloqueado) return;
   if ($('.vis')) return;           // não mexe na tela durante o visualizador
   if (S.album) abrirAlbum(S.album === 'todos' ? 'todos' : S.album.nodeId, true);
   else mostrarAlbuns();
@@ -445,11 +615,11 @@ async function menuGeral() {
     uso = `${tamanho(i.spaceUsed)} de ${tamanho(i.spaceTotal)}`;
   } catch {}
   folha(`<h3>${esc(S.nome)}${uso ? ' · ' + uso + ' usados' : ''}</h3>
-    <button class="it" data-a="cache">Limpar arquivos guardados neste aparelho</button>
+    <button class="it" data-a="pin">Trocar PIN</button>
     <button class="it perigo" data-a="sair">Sair</button>`, async a => {
-      if (a === 'cache') { await cacheLimpar(); urlsMini.forEach(u => URL.revokeObjectURL(u)); urlsMini.clear(); toast('Cache limpo.'); redesenhar(); }
+      if (a === 'pin') { S.desbloqueado = false; history.replaceState({ t: 'trava' }, ''); telaPin('criar'); }
       if (a === 'sair') {
-        localStorage.removeItem(CHAVE_SESSAO);
+        localStorage.removeItem(CH_SESS);
         try { await S.storage.close(); } catch {}
         location.reload();
       }
@@ -660,9 +830,12 @@ function selecionarArquivos(alb) {
   if (!alb) return;
   destinoEnvio = alb;
   inp.value = '';
+  S.ignorarOculto = true;   // o seletor de arquivos não conta como saída
   inp.click();
 }
+inp.addEventListener('cancel', () => setTimeout(() => { S.ignorarOculto = false; }, 1500));
 inp.onchange = () => {
+  setTimeout(() => { S.ignorarOculto = false; }, 1500);
   const arqs = [...inp.files];
   if (!arqs.length || !destinoEnvio) return;
   const temFoto = arqs.some(a => a.type.startsWith('image/'));
@@ -677,7 +850,7 @@ inp.onchange = () => {
 const estadoEnvio = { total: 0, feito: 0, pct: 0, nome: '' };
 function mostrarBarraEnvio() {
   let b = $('.envio');
-  if (!S.enviando) { b?.remove(); return; }
+  if (!S.enviando || !S.desbloqueado) { b?.remove(); return; }
   if (!b) { b = document.createElement('div'); b.className = 'envio'; b.innerHTML = '<span></span><div class="bar"><i></i></div>'; document.body.appendChild(b); }
   b.querySelector('span').textContent = `Enviando ${estadoEnvio.feito + 1} de ${estadoEnvio.total}… ${Math.round(estadoEnvio.pct * 100)}%`;
   b.querySelector('i').style.width = ((estadoEnvio.feito + estadoEnvio.pct) / estadoEnvio.total * 100) + '%';
@@ -702,6 +875,7 @@ async function enviar(arqs, alb, reduzir) {
   estadoEnvio.total = 0; estadoEnvio.feito = 0;
   mostrarBarraEnvio();
   toast(ok ? `${ok} ${ok === 1 ? 'arquivo enviado' : 'arquivos enviados'}.` : 'Nenhum arquivo enviado.');
+  if (!S.desbloqueado && S.storage) { S.storage.close().catch(() => {}); S.storage = null; return; }
   redesenhar();
 }
 
@@ -728,9 +902,9 @@ async function enviarUm(arq, alb, reduzir) {
   const novo = await fim;
 
   // guarda no aparelho para não baixar de novo
-  if (!video || corpo.size <= CACHE_VIDEO_MAX) cachePut('f:' + novo.nodeId, corpo);
+  if (S.desbloqueado) cachePut('f:' + novo.nodeId, corpo);
   if (mini) {
-    cachePut('m:' + novo.nodeId, mini);
+    if (S.desbloqueado) cachePut('m:' + novo.nodeId, mini);
     const buf = new Uint8Array(await mini.arrayBuffer());
     try { const mf = await S.mini.upload({ name: novo.nodeId + '.jpg' }, buf).complete; S.miniMap.set(novo.nodeId, mf); } catch (e) { console.warn('mini up', e); }
   }

@@ -1,6 +1,6 @@
-// Arquivos — service worker: guarda a "casca" do app para abrir rápido.
+// Notas — service worker: guarda a "casca" do app para abrir rápido.
 // As fotos e vídeos NÃO passam por aqui (vêm do MEGA, criptografados).
-const VERSAO = 'arq-v1';
+const VERSAO = 'nt-v1';
 const CASCA = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 const LIB = 'https://unpkg.com/megajs@1.3.10/dist/main.browser-es.mjs';
 
