@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111113">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Arquivos</title>
+<style>
+:root{--bg:#111113;--bg2:#1b1b1f;--bg3:#26262b;--tx:#f2f2f4;--tx2:#9a9aa3;--ac:#4f7cff;--ln:#2c2c32;--r:10px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior-y:contain}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input{font:inherit;color:var(--tx);background:var(--bg2);border:1px solid var(--ln);border-radius:8px;padding:12px;width:100%;outline:none}
+input:focus{border-color:var(--ac)}
+.hide{display:none!important}
+
+/* topo */
+.topo{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;height:52px;padding:0 6px 0 14px;padding-top:env(safe-area-inset-top);background:rgba(17,17,19,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--ln)}
+.topo h1{flex:1;margin:0;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topo .sub{color:var(--tx2);font-size:13px;font-weight:400;margin-left:6px}
+.ib{width:40px;height:40px;display:grid;place-items:center;border-radius:50%}
+.ib:active{background:var(--bg3)}
+.ib svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* álbuns */
+.albuns{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px 10px;padding:14px 12px 100px}
+.alb{text-align:left}
+.alb .capa{aspect-ratio:1;border-radius:var(--r);background:var(--bg2) center/cover no-repeat;display:grid;place-items:center;color:var(--tx2);overflow:hidden}
+.alb .capa svg{width:34px;height:34px;opacity:.5;fill:none;stroke:currentColor;stroke-width:1.6}
+.alb b{display:block;margin-top:6px;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alb small{color:var(--tx2);font-size:12px}
+
+/* grade */
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:2px;padding:2px 0 100px}
+.cel{position:relative;aspect-ratio:1;background:var(--bg2) center/cover no-repeat}
+.cel.vid::after{content:"";position:absolute;right:6px;bottom:6px;width:0;height:0;border-left:11px solid #fff;border-top:7px solid transparent;border-bottom:7px solid transparent;filter:drop-shadow(0 0 2px #000)}
+.cel.sel{outline:3px solid var(--ac);outline-offset:-3px}
+.vazio{padding:60px 24px;text-align:center;color:var(--tx2)}
+
+/* botão flutuante */
+.fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:50%;background:var(--ac);color:#fff;display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.45);z-index:6}
+.fab svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+
+/* barra de envio */
+.envio{position:fixed;left:10px;right:10px;bottom:calc(88px + env(safe-area-inset-bottom));background:var(--bg3);border-radius:var(--r);padding:10px 12px;z-index:7;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+.envio .bar{height:4px;background:var(--ln);border-radius:2px;margin-top:7px;overflow:hidden}
+.envio .bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .2s}
+
+/* folha inferior */
+.veu{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:flex;align-items:flex-end}
+.folha{width:100%;max-width:560px;margin:0 auto;background:var(--bg2);border-radius:16px 16px 0 0;padding:8px 0 calc(10px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
+.folha h3{margin:6px 18px 8px;font-size:14px;font-weight:500;color:var(--tx2)}
+.folha .it{display:flex;align-items:center;gap:12px;width:100%;padding:13px 18px;text-align:left}
+.folha .it:active{background:var(--bg3)}
+.folha .it.perigo{color:#ff6b6b}
+.folha .it small{margin-left:auto;color:var(--tx2)}
+.folha .campo{padding:6px 18px 4px}
+.folha .acoes{display:flex;justify-content:flex-end;gap:6px;padding:8px 12px 2px}
+.bt{padding:10px 16px;border-radius:8px;font-weight:500}
+.bt.pri{background:var(--ac);color:#fff}
+.bt.sec{color:var(--tx2)}
+.chk{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--tx2);font-size:14px}
+.chk input{width:18px;height:18px;accent-color:var(--ac)}
+
+/* visualizador */
+.vis{position:fixed;inset:0;background:#000;z-index:30;display:flex;flex-direction:column;touch-action:pan-y}
+.vis .vt{display:flex;align-items:center;gap:6px;padding:6px;padding-top:calc(6px + env(safe-area-inset-top));background:linear-gradient(#000c,#0000);position:absolute;top:0;left:0;right:0;z-index:2;transition:opacity .2s}
+.vis .vt .info{flex:1;min-width:0;font-size:13px;line-height:1.25}
+.vis .vt .info b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vis .vt .info span{color:#bbb}
+.vis .palco{flex:1;display:grid;place-items:center;overflow:hidden}
+.vis .palco img,.vis .palco video{max-width:100%;max-height:100vh;object-fit:contain;display:block}
+.vis.limpo .vt{opacity:0;pointer-events:none}
+.carreg{color:#ccc;font-size:13px;text-align:center}
+.giro{width:30px;height:30px;border:3px solid #fff3;border-top-color:#fff;border-radius:50%;margin:0 auto 10px;animation:g 0.8s linear infinite}
+@keyframes g{to{transform:rotate(360deg)}}
+
+/* login */
+.login{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px;max-width:380px;margin:0 auto}
+.login h2{margin:0 0 4px;font-size:24px}
+.login p{color:var(--tx2);margin:0 0 22px}
+.login .bt{width:100%;margin-top:12px;padding:14px}
+.erro{color:#ff6b6b;font-size:13px;min-height:18px;margin-top:10px}
+
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:20px;font-size:13px;z-index:50;max-width:90vw;text-align:center}
+.tela-c{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;color:var(--tx2)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="arquivos" accept="image/*,video/*" multiple class="hide">
+<script src="config.js"></script>
+<script type="module">
+import { Storage } from 'https://unpkg.com/megajs@1.3.10/dist/main.browser-es.mjs';
+
+/* ================= configuração ================= */
+const CFG = window.GALERIA_CONFIG || null;
+const PASTA_RAIZ = 'Arquivos';
+const PASTA_MINI = '.miniaturas';
+const ALBUM_PADRAO = 'Geral';
+const CHAVE_SESSAO = 'arq.sessao';
+const FOTO_MAX = 2560;          // lado maior da foto reduzida (px)
+const FOTO_QUAL = 0.85;         // qualidade JPEG da foto reduzida
+const MINI_LADO = 360;          // miniatura quadrada (px)
+const CACHE_VIDEO_MAX = 150e6;  // vídeos até 150 MB ficam guardados no aparelho
+const RX_IMG = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
+const RX_VID = /\.(mp4|mov|m4v|webm|3gp|mkv)$/i;
+
+const S = {
+  storage: null, nome: '', raiz: null, mini: null,
+  miniMap: new Map(),   // nodeId -> arquivo de miniatura no MEGA
+  album: null,          // pasta aberta (ou 'todos')
+  lista: [], idx: 0,    // itens da grade e posição no visualizador
+  enviando: false
+};
+
+/* ================= utilidades ================= */
+const app = document.getElementById('app');
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ICO = {
+  voltar: '<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>',
+  mais: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  menu: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
+  pasta: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>',
+  baixar: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  lixo: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'
+};
+const ehImg = f => RX_IMG.test(f.name || '');
+const ehVid = f => RX_VID.test(f.name || '');
+const ehMidia = f => !f.directory && (ehImg(f) || ehVid(f));
+const dataBR = ts => ts ? new Date(ts * 1000).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+const tamanho = b => b > 1e9 ? (b / 1e9).toFixed(1).replace('.', ',') + ' GB' : (b / 1e6).toFixed(0) + ' MB';
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+function toast(msg, ms = 2800) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms);
+}
+function msgErro(e) {
+  const m = String(e?.message || e || '');
+  if (e?.timeLimit || /Bandwidth limit/i.test(m)) {
+    const min = Math.ceil((+e.timeLimit || 0) / 60);
+    return 'Limite de transferência do MEGA atingido' + (min ? ` — libera em cerca de ${min} min` : '') + '.';
+  }
+  if (/ESID|-15/.test(m)) return 'Sessão expirada. Entre de novo.';
+  if (/EOVERQUOTA|-17/.test(m)) return 'Espaço do MEGA esgotado.';
+  if (/Failed to fetch|NetworkError|network/i.test(m)) return 'Sem conexão com o MEGA.';
+  return 'Erro: ' + m;
+}
+
+/* ================= cache local (IndexedDB) ================= */
+const dbP = new Promise((res, rej) => {
+  const r = indexedDB.open('arquivos-cache', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('cache');
+  r.onsuccess = () => res(r.result);
+  r.onerror = () => rej(r.error);
+});
+async function cacheGet(k) {
+  try {
+    const d = await dbP;
+    return await new Promise(r => { const q = d.transaction('cache').objectStore('cache').get(k); q.onsuccess = () => r(q.result || null); q.onerror = () => r(null); });
+  } catch { return null; }
+}
+async function cachePut(k, v) {
+  try {
+    const d = await dbP;
+    await new Promise(r => { const t = d.transaction('cache', 'readwrite'); t.objectStore('cache').put(v, k); t.oncomplete = r; t.onerror = r; t.onabort = r; });
+  } catch {}
+}
+async function cacheDel(k) {
+  try { const d = await dbP; await new Promise(r => { const t = d.transaction('cache', 'readwrite'); t.objectStore('cache').delete(k); t.oncomplete = r; t.onerror = r; }); } catch {}
+}
+async function cacheLimpar() {
+  try { const d = await dbP; await new Promise(r => { const t = d.transaction('cache', 'readwrite'); t.objectStore('cache').clear(); t.oncomplete = r; t.onerror = r; }); } catch {}
+}
+
+/* ================= credenciais protegidas ================= */
+async function abrirCredenciais(u, senha) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
+  const chave = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: b64d(u.salt), iterations: CFG.iter, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(u.iv) }, chave, b64d(u.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function salvarSessao() {
+  const j = S.storage.toJSON();
+  j.options = { userAgent: null };            // nunca guarda e-mail/senha do MEGA
+  localStorage.setItem(CHAVE_SESSAO, JSON.stringify({ nome: S.nome, s: j }));
+}
+function lerSessao() {
+  try { return JSON.parse(localStorage.getItem(CHAVE_SESSAO) || 'null'); } catch { return null; }
+}
+
+/* ================= inicialização ================= */
+async function iniciar() {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (!CFG || !CFG.usuarios?.length) {
+    app.innerHTML = `<div class="tela-c"><div>App ainda não configurado.<br><br>Abra <b>configurar.html</b>, gere o conteúdo do <b>config.js</b> e publique.</div></div>`;
+    return;
+  }
+  const sess = lerSessao();
+  if (sess) {
+    telaCarregando('Abrindo…');
+    try {
+      S.storage = Storage.fromJSON(sess.s);
+      S.nome = sess.nome;
+      await S.storage.reload();
+      await posLogin();
+      return;
+    } catch (e) {
+      console.warn(e);
+      if (/ESID|-15|ENOENT|-9|EKEY/.test(String(e?.message))) {
+        localStorage.removeItem(CHAVE_SESSAO);
+      } else {
+        app.innerHTML = `<div class="tela-c"><div>${esc(msgErro(e))}<br><br><button class="bt pri" id="tent">Tentar de novo</button></div></div>`;
+        $('#tent').onclick = () => location.reload();
+        return;
+      }
+    }
+  }
+  telaLogin();
+}
+
+function telaCarregando(txt) {
+  app.innerHTML = `<div class="tela-c"><div><div class="giro"></div>${esc(txt)}</div></div>`;
+}
+
+function telaLogin() {
+  const us = CFG.usuarios;
+  app.innerHTML = `
+  <div class="login">
+    <h2>Arquivos</h2>
+    <p>Digite sua senha.</p>
+    <input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
+    <button class="bt pri" id="entrar">Entrar</button>
+    <div class="erro" id="erro"></div>
+  </div>`;
+  const entrar = async () => {
+    const erro = $('#erro'); erro.textContent = '';
+    const senha = $('#senha').value;
+    if (!senha) { erro.textContent = 'Digite a senha.'; return; }
+    const bt = $('#entrar'); bt.disabled = true; bt.textContent = 'Entrando…';
+    // descobre quem é pela senha: só a credencial certa abre
+    let cred, quem;
+    try {
+      [cred, quem] = await Promise.any(us.map(u => abrirCredenciais(u, senha).then(c => [c, u])));
+    } catch { erro.textContent = 'Senha incorreta.'; bt.disabled = false; bt.textContent = 'Entrar'; return; }
+    try {
+      S.storage = new Storage({ email: cred.email, password: cred.password, userAgent: null });
+      cred = null;
+      await S.storage.ready;
+      S.nome = quem.nome;
+      salvarSessao();
+      await posLogin();
+    } catch (e) {
+      console.warn(e);
+      erro.textContent = msgErro(e);
+      bt.disabled = false; bt.textContent = 'Entrar';
+    }
+  };
+  $('#entrar').onclick = entrar;
+  $('#senha').onkeydown = e => { if (e.key === 'Enter') entrar(); };
+  setTimeout(() => $('#senha').focus(), 50);
+}
+
+async function posLogin() {
+  const st = S.storage;
+  S.raiz = (st.root.children || []).find(f => f.directory && f.name === PASTA_RAIZ) || await st.root.mkdir(PASTA_RAIZ);
+  S.mini = filhos(S.raiz).find(f => f.directory && f.name === PASTA_MINI) || await S.raiz.mkdir(PASTA_MINI);
+  if (!albuns().length) await S.raiz.mkdir(ALBUM_PADRAO);
+  reconstruirMiniMap();
+
+  // atualizações em tempo real (envios feitos no outro celular)
+  let t;
+  const atualizar = () => { clearTimeout(t); t = setTimeout(() => { reconstruirMiniMap(); redesenhar(); }, 400); };
+  st.on('add', atualizar); st.on('delete', atualizar); st.on('move', atualizar); st.on('update', atualizar);
+
+  history.replaceState({ t: 'albuns' }, '');
+  mostrarAlbuns();
+}
+
+/* ================= dados ================= */
+const filhos = p => (p?.children || []).filter(f => !f.deleted);
+const albuns = () => filhos(S.raiz).filter(f => f.directory && f.name !== PASTA_MINI)
+  .sort((a, b) => a.name === ALBUM_PADRAO ? -1 : b.name === ALBUM_PADRAO ? 1 : a.name.localeCompare(b.name, 'pt-BR'));
+const midias = p => filhos(p).filter(ehMidia).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+const todas = () => albuns().flatMap(midias).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+function reconstruirMiniMap() {
+  S.miniMap.clear();
+  for (const f of filhos(S.mini)) S.miniMap.set(f.name.replace(/\.jpg$/, ''), f);
+}
+
+/* ================= fila de downloads de miniaturas ================= */
+const fila = []; let ativos = 0;
+function enfileirar(fn) {
+  return new Promise((res, rej) => { fila.push({ fn, res, rej }); bombear(); });
+}
+function bombear() {
+  while (ativos < 4 && fila.length) {
+    const { fn, res, rej } = fila.shift(); ativos++;
+    fn().then(res, rej).finally(() => { ativos--; bombear(); });
+  }
+}
+const urlsMini = new Map(); // nodeId -> objectURL
+async function urlMiniatura(f) {
+  if (urlsMini.has(f.nodeId)) return urlsMini.get(f.nodeId);
+  let blob = await cacheGet('m:' + f.nodeId);
+  if (!blob) {
+    const mf = S.miniMap.get(f.nodeId);
+    if (mf) {
+      blob = new Blob([await enfileirar(() => mf.downloadBuffer({}))], { type: 'image/jpeg' });
+    } else if (ehImg(f)) {
+      // enviado por fora do app: gera miniatura a partir da foto
+      const orig = await obterMidia(f);
+      blob = await gerarMiniatura(orig, false);
+    }
+    if (blob) cachePut('m:' + f.nodeId, blob);
+  }
+  if (!blob) return null;
+  const u = URL.createObjectURL(blob);
+  urlsMini.set(f.nodeId, u);
+  return u;
+}
+const obs = new IntersectionObserver(ents => {
+  for (const e of ents) {
+    if (!e.isIntersecting) continue;
+    obs.unobserve(e.target);
+    const f = e.target._f;
+    urlMiniatura(f).then(u => { if (u) e.target.style.backgroundImage = `url("${u}")`; }).catch(err => console.warn('mini', err));
+  }
+}, { rootMargin: '300px' });
+
+/* ================= download da mídia completa ================= */
+function baixarComProgresso(f, onProg) {
+  return new Promise((res, rej) => {
+    const partes = [];
+    const s = f.download({});
+    s.on('data', d => partes.push(d));
+    s.on('progress', p => onProg && onProg(p.bytesLoaded / (p.bytesTotal || f.size || 1)));
+    s.on('error', rej);
+    s.on('end', () => res(new Blob(partes, { type: tipoMime(f) })));
+  });
+}
+function tipoMime(f) {
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif', bmp: 'image/bmp',
+    mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', '3gp': 'video/3gpp', mkv: 'video/x-matroska' })[ext] || 'application/octet-stream';
+}
+async function obterMidia(f, onProg) {
+  const c = await cacheGet('f:' + f.nodeId);
+  if (c) return c;
+  const b = await baixarComProgresso(f, onProg);
+  if (ehImg(f) || b.size <= CACHE_VIDEO_MAX) cachePut('f:' + f.nodeId, b);
+  return b;
+}
+
+/* ================= navegação (botão voltar do Android) ================= */
+function empurrar(estado) { history.pushState(estado, ''); }
+let pendente = null;   // ação a executar depois que a folha fechar
+window.addEventListener('popstate', e => {
+  const st = e.state || { t: 'albuns' };
+  fecharFolha();
+  if (!st.folha) {
+    if (st.t !== 'vis') fecharVisualizador(true);
+    if (st.t === 'albuns') { if (S.album !== null || !$('.albuns')) mostrarAlbuns(); }
+    else if (st.t === 'album') { if (!$('.grade') && !$('.vazio')) abrirAlbum(st.id, true); }
+  }
+  if (pendente) { const p = pendente; pendente = null; p(); }
+});
+function redesenhar() {
+  if ($('.vis')) return;           // não mexe na tela durante o visualizador
+  if (S.album) abrirAlbum(S.album === 'todos' ? 'todos' : S.album.nodeId, true);
+  else mostrarAlbuns();
+}
+
+/* ================= tela: álbuns ================= */
+function mostrarAlbuns() {
+  S.album = null;
+  const lista = albuns();
+  const total = todas();
+  const card = (id, nome, itens) => `
+    <button class="alb" data-id="${esc(id)}">
+      <div class="capa" data-capa="${esc(itens[0]?.nodeId || '')}">${itens.length ? '' : ICO.pasta}</div>
+      <b>${esc(nome)}</b><small>${itens.length} ${itens.length === 1 ? 'item' : 'itens'}</small>
+    </button>`;
+  app.innerHTML = `
+    <div class="topo"><h1>Arquivos</h1>
+      <button class="ib" id="menu">${ICO.menu}</button></div>
+    <div class="albuns">
+      ${card('todos', 'Todos', total)}
+      ${lista.map(a => card(a.nodeId, a.name, midias(a))).join('')}
+    </div>
+    <button class="fab" id="fab">${ICO.mais}</button>`;
+  app.querySelectorAll('.alb').forEach(b => b.onclick = () => abrirAlbum(b.dataset.id));
+  app.querySelectorAll('[data-capa]').forEach(el => {
+    const f = el.dataset.capa && S.storage.files[el.dataset.capa];
+    if (f) urlMiniatura(f).then(u => { if (u) el.style.backgroundImage = `url("${u}")`; }).catch(() => {});
+  });
+  $('#fab').onclick = () => folha(`
+    <h3>Adicionar</h3>
+    <button class="it" data-a="enviar">Enviar fotos e vídeos</button>
+    <button class="it" data-a="novo">Novo álbum</button>`, a => {
+      if (a === 'novo') return novoAlbum();
+      if (a === 'enviar') escolherAlbumParaEnviar();
+    });
+  $('#menu').onclick = menuGeral;
+  mostrarBarraEnvio();
+}
+
+function escolherAlbumParaEnviar() {
+  const lista = albuns();
+  folha(`<h3>Enviar para qual álbum?</h3>${lista.map(a => `<button class="it" data-a="${a.nodeId}">${esc(a.name)}<small>${midias(a).length}</small></button>`).join('')}`,
+    id => selecionarArquivos(S.storage.files[id]));
+}
+
+function novoAlbum(depois) {
+  folha(`<h3>Novo álbum</h3>
+    <div class="campo"><input id="nomeAlb" placeholder="Nome do álbum" maxlength="60"></div>
+    <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Criar</button></div>`,
+    async (a, v) => {
+      if (a !== 'ok') return;
+      const nome = (v.nomeAlb || '').trim();
+      if (!nome) return;
+      if (albuns().some(x => x.name.toLowerCase() === nome.toLowerCase())) { toast('Já existe um álbum com esse nome.'); return; }
+      try {
+        const p = await S.raiz.mkdir(nome);
+        toast('Álbum criado.');
+        if (depois) depois(p); else redesenhar();
+      } catch (e) { toast(msgErro(e)); }
+    }, () => setTimeout(() => $('#nomeAlb')?.focus(), 50));
+}
+
+async function menuGeral() {
+  let uso = '';
+  try {
+    const i = await S.storage.getAccountInfo();
+    uso = `${tamanho(i.spaceUsed)} de ${tamanho(i.spaceTotal)}`;
+  } catch {}
+  folha(`<h3>${esc(S.nome)}${uso ? ' · ' + uso + ' usados' : ''}</h3>
+    <button class="it" data-a="cache">Limpar arquivos guardados neste aparelho</button>
+    <button class="it perigo" data-a="sair">Sair</button>`, async a => {
+      if (a === 'cache') { await cacheLimpar(); urlsMini.forEach(u => URL.revokeObjectURL(u)); urlsMini.clear(); toast('Cache limpo.'); redesenhar(); }
+      if (a === 'sair') {
+        localStorage.removeItem(CHAVE_SESSAO);
+        try { await S.storage.close(); } catch {}
+        location.reload();
+      }
+    });
+}
+
+/* ================= tela: álbum (grade) ================= */
+function abrirAlbum(id, semHistorico) {
+  const alb = id === 'todos' ? 'todos' : S.storage.files[id];
+  if (!alb || (alb !== 'todos' && alb.deleted)) { mostrarAlbuns(); return; }
+  if (!semHistorico) empurrar({ t: 'album', id });
+  S.album = alb;
+  const itens = alb === 'todos' ? todas() : midias(alb);
+  S.lista = itens;
+  const nome = alb === 'todos' ? 'Todos' : alb.name;
+  const scroll = semHistorico ? window.scrollY : 0;
+  app.innerHTML = `
+    <div class="topo"><button class="ib" id="volt">${ICO.voltar}</button>
+      <h1>${esc(nome)}<span class="sub">${itens.length}</span></h1>
+      ${alb === 'todos' ? '' : `<button class="ib" id="menuAlb">${ICO.menu}</button>`}</div>
+    ${itens.length ? `<div class="grade">${itens.map((f, i) => `<button class="cel${ehVid(f) ? ' vid' : ''}" data-i="${i}"></button>`).join('')}</div>`
+      : `<div class="vazio">Nada aqui ainda.<br>Toque no + para enviar.</div>`}
+    ${alb === 'todos' ? '' : `<button class="fab" id="fab">${ICO.mais}</button>`}`;
+  window.scrollTo(0, scroll);
+  $('#volt').onclick = () => history.back();
+  app.querySelectorAll('.cel').forEach(c => {
+    c._f = itens[+c.dataset.i];
+    const u = urlsMini.get(c._f.nodeId);
+    if (u) c.style.backgroundImage = `url("${u}")`; else obs.observe(c);
+    c.onclick = () => abrirVisualizador(+c.dataset.i);
+  });
+  if (alb !== 'todos') {
+    $('#fab').onclick = () => selecionarArquivos(alb);
+    $('#menuAlb').onclick = () => menuAlbum(alb);
+  }
+  mostrarBarraEnvio();
+}
+
+function menuAlbum(alb) {
+  folha(`<h3>${esc(alb.name)}</h3>
+    <button class="it" data-a="ren">Renomear álbum</button>
+    ${alb.name === ALBUM_PADRAO ? '' : '<button class="it perigo" data-a="del">Excluir álbum</button>'}`, a => {
+      if (a === 'ren') {
+        folha(`<h3>Renomear</h3><div class="campo"><input id="nomeAlb" value="${esc(alb.name)}" maxlength="60"></div>
+          <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Salvar</button></div>`, async (b, v) => {
+            if (b !== 'ok') return;
+            const n = (v.nomeAlb || '').trim();
+            if (!n || n === alb.name) return;
+            try { await alb.rename(n); redesenhar(); } catch (e) { toast(msgErro(e)); }
+          });
+      }
+      if (a === 'del') {
+        const n = midias(alb).length;
+        folha(`<h3>Excluir "${esc(alb.name)}"${n ? ` e ${n} ${n === 1 ? 'item' : 'itens'}` : ''}?</h3>
+          <div class="campo" style="color:var(--tx2);font-size:13px">Vai para a lixeira do MEGA (dá para recuperar por lá).</div>
+          <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Excluir</button></div>`, async b => {
+            if (b !== 'ok') return;
+            try { await alb.delete(false); S.album = null; history.back(); } catch (e) { toast(msgErro(e)); }
+          });
+      }
+    });
+}
+
+/* ================= visualizador ================= */
+let urlAtual = null, tokenVis = 0;
+function abrirVisualizador(i) {
+  S.idx = i;
+  empurrar({ t: 'vis' });
+  const v = document.createElement('div');
+  v.className = 'vis';
+  v.innerHTML = `
+    <div class="vt"><button class="ib" id="vVolt">${ICO.voltar}</button>
+      <div class="info"><b id="vNome"></b><span id="vMeta"></span></div>
+      <button class="ib" id="vBaixar">${ICO.baixar}</button>
+      <button class="ib" id="vDel">${ICO.lixo}</button></div>
+    <div class="palco" id="palco"></div>`;
+  document.body.appendChild(v);
+  document.body.style.overflow = 'hidden';
+  $('#vVolt').onclick = () => history.back();
+  $('#vBaixar').onclick = salvarNoAparelho;
+  $('#vDel').onclick = excluirAtual;
+  // gestos: deslizar para os lados troca de item, toque esconde a barra
+  let x0 = null, y0 = 0;
+  v.addEventListener('touchstart', e => { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true });
+  v.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) mover(dx < 0 ? 1 : -1);
+  });
+  $('#palco').addEventListener('click', e => { if (e.target.tagName !== 'VIDEO') v.classList.toggle('limpo'); });
+  document.addEventListener('keydown', teclas);
+  exibir();
+}
+function teclas(e) {
+  if (!$('.vis')) return;
+  if (e.key === 'ArrowRight') mover(1);
+  if (e.key === 'ArrowLeft') mover(-1);
+}
+function mover(d) {
+  const n = S.idx + d;
+  if (n < 0 || n >= S.lista.length) return;
+  S.idx = n; exibir();
+}
+async function exibir() {
+  const f = S.lista[S.idx];
+  const palco = $('#palco');
+  if (!f || !palco) return;
+  const meu = ++tokenVis;
+  if (urlAtual) { URL.revokeObjectURL(urlAtual); urlAtual = null; }
+  $('#vNome').textContent = `${S.idx + 1} de ${S.lista.length}`;
+  const por = f.attributes?.por ? f.attributes.por + ' · ' : '';
+  $('#vMeta').textContent = por + dataBR(f.timestamp);
+  // mostra a miniatura enquanto carrega
+  const mini = urlsMini.get(f.nodeId);
+  palco.innerHTML = `${mini && ehImg(f) ? `<img src="${mini}" style="filter:blur(2px);width:100%;height:auto">` : ''}
+    <div class="carreg" style="position:absolute"><div class="giro"></div><span id="pct">Carregando…</span></div>`;
+  try {
+    const blob = await obterMidia(f, p => { if (meu === tokenVis && $('#pct')) $('#pct').textContent = Math.round(p * 100) + '%'; });
+    if (meu !== tokenVis || !$('#palco')) return;
+    urlAtual = URL.createObjectURL(blob);
+    if (ehVid(f)) palco.innerHTML = `<video src="${urlAtual}" controls autoplay playsinline></video>`;
+    else palco.innerHTML = `<img src="${urlAtual}" alt="">`;
+  } catch (e) {
+    if (meu !== tokenVis) return;
+    palco.innerHTML = `<div class="carreg">${esc(msgErro(e))}</div>`;
+  }
+  // pré-carrega a próxima foto em segundo plano
+  const prox = S.lista[S.idx + 1];
+  if (prox && ehImg(prox)) cacheGet('f:' + prox.nodeId).then(c => { if (!c) obterMidia(prox).catch(() => {}); });
+}
+function fecharVisualizador(semHistorico) {
+  const v = $('.vis');
+  if (!v) return;
+  tokenVis++;
+  if (urlAtual) { URL.revokeObjectURL(urlAtual); urlAtual = null; }
+  v.remove();
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', teclas);
+  if (!semHistorico) history.back();
+  // a grade pode ter mudado enquanto o visualizador estava aberto
+  if (S.album) abrirAlbum(S.album === 'todos' ? 'todos' : S.album.nodeId, true);
+}
+async function salvarNoAparelho() {
+  const f = S.lista[S.idx];
+  try {
+    toast('Preparando…', 1200);
+    const b = await obterMidia(f);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (e) { toast(msgErro(e)); }
+}
+function excluirAtual() {
+  const f = S.lista[S.idx];
+  folha(`<h3>Excluir ${ehVid(f) ? 'este vídeo' : 'esta foto'}?</h3>
+    <div class="campo" style="color:var(--tx2);font-size:13px">Some para os dois. Fica na lixeira do MEGA por um tempo.</div>
+    <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Excluir</button></div>`, async a => {
+      if (a !== 'ok') return;
+      try {
+        const mf = S.miniMap.get(f.nodeId);
+        await f.delete(false);
+        if (mf) mf.delete(true).catch(() => {});
+        cacheDel('f:' + f.nodeId); cacheDel('m:' + f.nodeId);
+        S.lista.splice(S.idx, 1);
+        if (!S.lista.length) { history.back(); return; }
+        if (S.idx >= S.lista.length) S.idx = S.lista.length - 1;
+        exibir();
+      } catch (e) { toast(msgErro(e)); }
+    });
+}
+
+/* ================= folha inferior genérica ================= */
+let folhaAberta = null;
+function folha(html, aoEscolher, aoAbrir) {
+  const jaHavia = !!folhaAberta;
+  fecharFolha();
+  const v = document.createElement('div');
+  v.className = 'veu';
+  v.innerHTML = `<div class="folha">${html}</div>`;
+  document.body.appendChild(v);
+  folhaAberta = v;
+  if (!jaHavia) empurrar({ ...(history.state || {}), folha: true });
+  v.addEventListener('click', e => {
+    if (e.target === v) { history.back(); return; }
+    const b = e.target.closest('[data-a]');
+    if (!b) return;
+    const a = b.dataset.a;
+    const vals = {};
+    v.querySelectorAll('input').forEach(i => vals[i.id] = i.type === 'checkbox' ? i.checked : i.value);
+    if (aoEscolher) pendente = () => aoEscolher(a, vals);
+    history.back();             // fecha a folha; a ação roda no popstate
+  });
+  v.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => {
+    if (e.key === 'Enter') v.querySelector('[data-a="ok"]')?.click();
+  }));
+  if (aoAbrir) aoAbrir();
+}
+function fecharFolha() {
+  if (folhaAberta) { folhaAberta.remove(); folhaAberta = null; }
+}
+
+/* ================= envio ================= */
+let destinoEnvio = null;
+const inp = document.getElementById('arquivos');
+function selecionarArquivos(alb) {
+  if (!alb) return;
+  destinoEnvio = alb;
+  inp.value = '';
+  inp.click();
+}
+inp.onchange = () => {
+  const arqs = [...inp.files];
+  if (!arqs.length || !destinoEnvio) return;
+  const temFoto = arqs.some(a => a.type.startsWith('image/'));
+  if (!temFoto) { enviar(arqs, destinoEnvio, true); return; }
+  folha(`<h3>Enviar ${arqs.length} ${arqs.length === 1 ? 'arquivo' : 'arquivos'} para "${esc(destinoEnvio.name)}"</h3>
+    <label class="chk"><input type="checkbox" id="reduzir" checked> Reduzir fotos (economiza espaço, qualidade de tela cheia)</label>
+    <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Enviar</button></div>`, (a, v) => {
+      if (a === 'ok') enviar(arqs, destinoEnvio, v.reduzir !== false);
+    });
+};
+
+const estadoEnvio = { total: 0, feito: 0, pct: 0, nome: '' };
+function mostrarBarraEnvio() {
+  let b = $('.envio');
+  if (!S.enviando) { b?.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.className = 'envio'; b.innerHTML = '<span></span><div class="bar"><i></i></div>'; document.body.appendChild(b); }
+  b.querySelector('span').textContent = `Enviando ${estadoEnvio.feito + 1} de ${estadoEnvio.total}… ${Math.round(estadoEnvio.pct * 100)}%`;
+  b.querySelector('i').style.width = ((estadoEnvio.feito + estadoEnvio.pct) / estadoEnvio.total * 100) + '%';
+}
+
+const filaEnvio = [];
+async function enviar(arqs, alb, reduzir) {
+  for (const a of arqs) filaEnvio.push({ a, alb, reduzir });
+  estadoEnvio.total += arqs.length;
+  if (S.enviando) { mostrarBarraEnvio(); return; }
+  S.enviando = true;
+  let erros = 0;
+  while (filaEnvio.length) {
+    const { a, alb: destino, reduzir: red } = filaEnvio.shift();
+    estadoEnvio.pct = 0; mostrarBarraEnvio();
+    try { await enviarUm(a, destino, red); }
+    catch (e) { console.warn(e); erros++; toast(`Falhou: ${a.name} — ${msgErro(e)}`, 4000); }
+    estadoEnvio.feito++;
+  }
+  S.enviando = false;
+  const ok = estadoEnvio.feito - erros;
+  estadoEnvio.total = 0; estadoEnvio.feito = 0;
+  mostrarBarraEnvio();
+  toast(ok ? `${ok} ${ok === 1 ? 'arquivo enviado' : 'arquivos enviados'}.` : 'Nenhum arquivo enviado.');
+  redesenhar();
+}
+
+async function enviarUm(arq, alb, reduzir) {
+  const video = arq.type.startsWith('video/') || RX_VID.test(arq.name);
+  let corpo = arq, nome = arq.name || ('arquivo-' + Date.now());
+  if (!video && reduzir) {
+    const r = await reduzirFoto(arq).catch(() => null);
+    if (r && r.size < arq.size) { corpo = r; nome = nome.replace(/\.[^.]+$/, '') + '.jpg'; }
+  }
+  if (!video && !RX_IMG.test(nome)) nome += '.jpg';
+  const mini = await gerarMiniatura(corpo, video).catch(() => null);
+
+  const up = alb.upload({ name: nome, size: corpo.size, attributes: { por: S.nome } });
+  up.on('progress', p => { estadoEnvio.pct = p.bytesUploaded / (p.bytesTotal || 1); mostrarBarraEnvio(); });
+  const fim = up.complete;
+  // envia em pedaços, sem carregar o vídeo inteiro na memória
+  const leitor = corpo.stream().getReader();
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) { up.end(); break; }
+    if (!up.write(value)) await Promise.race([new Promise(r => up.once('drain', r)), fim]);
+  }
+  const novo = await fim;
+
+  // guarda no aparelho para não baixar de novo
+  if (!video || corpo.size <= CACHE_VIDEO_MAX) cachePut('f:' + novo.nodeId, corpo);
+  if (mini) {
+    cachePut('m:' + novo.nodeId, mini);
+    const buf = new Uint8Array(await mini.arrayBuffer());
+    try { const mf = await S.mini.upload({ name: novo.nodeId + '.jpg' }, buf).complete; S.miniMap.set(novo.nodeId, mf); } catch (e) { console.warn('mini up', e); }
+  }
+}
+
+/* ================= imagens: reduzir e miniatura ================= */
+async function bitmapDe(blob) {
+  try { return await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
+  catch {
+    const u = URL.createObjectURL(blob);
+    try {
+      const img = new Image(); img.src = u; await img.decode(); return img;
+    } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); }
+  }
+}
+function canvasPara(blob, q) {
+  return new Promise(r => blob.toBlob(r, 'image/jpeg', q));
+}
+async function reduzirFoto(arq) {
+  if (/gif$/i.test(arq.type)) return null; // mantém GIF animado
+  const bmp = await bitmapDe(arq);
+  const w = bmp.width, h = bmp.height;
+  const k = Math.min(1, FOTO_MAX / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return canvasPara(c, FOTO_QUAL);
+}
+async function quadroDoVideo(blob) {
+  const u = URL.createObjectURL(blob);
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = u;
+  try {
+    await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(rej, 10000); });
+    v.currentTime = Math.min(1, (v.duration || 2) / 2);
+    await new Promise((res, rej) => { v.onseeked = res; setTimeout(res, 4000); });
+    return v;
+  } catch { URL.revokeObjectURL(u); return null; }
+  finally { setTimeout(() => URL.revokeObjectURL(u), 5000); }
+}
+async function gerarMiniatura(blob, video) {
+  const fonte = video ? await quadroDoVideo(blob) : await bitmapDe(blob);
+  if (!fonte) return null;
+  const w = fonte.videoWidth || fonte.width, h = fonte.videoHeight || fonte.height;
+  if (!w || !h) return null;
+  const lado = Math.min(w, h);
+  const c = document.createElement('canvas');
+  c.width = c.height = MINI_LADO;
+  c.getContext('2d').drawImage(fonte, (w - lado) / 2, (h - lado) / 2, lado, lado, 0, 0, MINI_LADO, MINI_LADO);
+  fonte.close?.();
+  return canvasPara(c, 0.75);
+}
+
+iniciar();
+</script>
+</body>
+</html>
