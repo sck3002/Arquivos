@@ -122,9 +122,9 @@ const CFG = window.GALERIA_CONFIG || null;
 const PASTA_RAIZ = 'Arquivos';
 const PASTA_MINI = '.miniaturas';
 const ALBUM_PADRAO = 'Geral';
-const CH_SESS = 'notas.k';        // sessão do MEGA, trancada pelo PIN
+const CH_SESS = 'notas.s';        // sessão do MEGA, trancada pela senha de cada um
 const CH_NOTAS = 'notas.itens';   // notas do disfarce
-const PIN_ITER = 200000;
+const SESS_ITER = 200000;
 const FOTO_MAX = 2560;          // lado maior da foto reduzida (px)
 const FOTO_QUAL = 0.85;         // qualidade JPEG da foto reduzida
 const MINI_LADO = 360;          // miniatura quadrada (px)
@@ -184,7 +184,7 @@ function msgErro(e) {
 /* ================= cache só na memória ================= */
 // Nada de foto ou vídeo é gravado no aparelho: tudo some ao bloquear ou fechar o app.
 try { indexedDB.deleteDatabase('arquivos-cache'); indexedDB.deleteDatabase('nossa-galeria'); } catch {}
-try { localStorage.removeItem('arq.sessao'); localStorage.removeItem('ng.sessao'); } catch {}
+try { ['arq.sessao', 'ng.sessao', 'notas.k'].forEach(k => localStorage.removeItem(k)); } catch {}
 const mem = new Map();
 async function cacheGet(k) { return mem.get(k) || null; }
 async function cachePut(k, v) {
@@ -209,28 +209,22 @@ async function abrirCredenciais(u, senha) {
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(u.iv) }, chave, b64d(u.ct));
   return JSON.parse(new TextDecoder().decode(pt));
 }
-async function salvarSessao(pin) {
+async function salvarSessao(senha) {
   const j = S.storage.toJSON();
   j.options = { userAgent: null };            // nunca guarda e-mail/senha do MEGA
   const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
-  const chave = await chaveDe(pin, salt, PIN_ITER);
+  const chave = await chaveDe(senha, salt, SESS_ITER);
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, chave, new TextEncoder().encode(JSON.stringify({ nome: S.nome, s: j }))));
-  localStorage.setItem(CH_SESS, JSON.stringify({ salt: b64(salt), iv: b64(iv), ct: b64(ct), t: 0 }));
+  localStorage.setItem(CH_SESS, JSON.stringify({ salt: b64(salt), iv: b64(iv), ct: b64(ct) }));
 }
-function temSessao() { return !!localStorage.getItem(CH_SESS); }
-async function abrirSessao(pin) {
-  const reg = JSON.parse(localStorage.getItem(CH_SESS));
+async function abrirSessao(senha) {
   try {
-    const chave = await chaveDe(pin, b64d(reg.salt), PIN_ITER);
+    const reg = JSON.parse(localStorage.getItem(CH_SESS) || 'null');
+    if (!reg) return null;
+    const chave = await chaveDe(senha, b64d(reg.salt), SESS_ITER);
     const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(reg.iv) }, chave, b64d(reg.ct));
-    reg.t = 0; localStorage.setItem(CH_SESS, JSON.stringify(reg));
     return JSON.parse(new TextDecoder().decode(pt));
-  } catch {
-    reg.t = (reg.t || 0) + 1;
-    if (reg.t >= 5) { localStorage.removeItem(CH_SESS); return 'bloqueado'; }
-    localStorage.setItem(CH_SESS, JSON.stringify(reg));
-    return null;
-  }
+  } catch { return null; }
 }
 
 /* ================= inicialização ================= */
@@ -314,66 +308,14 @@ function desbloquear() {
     app.innerHTML = `<div class="tela-c trava"><div>Configuração ausente.<br><br>Gere o config.js em configurar.html e publique.</div></div>`;
     return;
   }
-  if (temSessao()) telaPin('abrir'); else telaLogin();
+  telaSenha();
 }
 function telaCarregando(txt) {
   modo('escuro');
   app.innerHTML = `<div class="tela-c trava"><div><div class="giro"></div>${esc(txt)}</div></div>`;
 }
-function telaPin(etapa, primeiro) {
+function telaSenha() {
   modo('escuro');
-  const txt = { abrir: 'Digite o PIN.', criar: 'Crie um PIN de 4 a 6 números para este aparelho.', confirmar: 'Digite o PIN de novo.' }[etapa];
-  app.innerHTML = `
-  <div class="login trava">
-    <p>${txt}</p>
-    <input type="password" id="pin" class="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
-    <button class="bt pri" id="ok">${etapa === 'abrir' ? 'Abrir' : 'Continuar'}</button>
-    <div class="erro" id="erro"></div>
-    ${etapa === 'abrir' ? '<div class="ln"><button id="esqueci">Esqueci o PIN</button></div>' : ''}
-  </div>`;
-  const campo = $('#pin');
-  campo.oninput = () => { campo.value = campo.value.replace(/\D/g, ''); };
-  setTimeout(() => campo.focus(), 60);
-  if ($('#esqueci')) $('#esqueci').onclick = () => { localStorage.removeItem(CH_SESS); telaLogin(); };
-  const ir = async () => {
-    const pin = campo.value, erro = $('#erro');
-    erro.textContent = '';
-    if (!/^\d{4,6}$/.test(pin)) { erro.textContent = 'Use de 4 a 6 números.'; return; }
-    if (etapa === 'criar') { telaPin('confirmar', pin); return; }
-    if (etapa === 'confirmar') {
-      if (pin !== primeiro) { telaPin('criar'); $('#erro').textContent = 'Os PINs não conferem. Tente de novo.'; return; }
-      $('#ok').disabled = true;
-      await salvarSessao(pin);
-      await posLogin();
-      return;
-    }
-    // abrir
-    $('#ok').disabled = true; $('#ok').textContent = 'Abrindo…';
-    const sess = await abrirSessao(pin);
-    if (sess === 'bloqueado') { telaLogin(); $('#erro').textContent = 'Muitas tentativas. Entre com a senha.'; return; }
-    if (!sess) { erro.textContent = 'PIN incorreto.'; $('#ok').disabled = false; $('#ok').textContent = 'Abrir'; campo.value = ''; campo.focus(); return; }
-    telaCarregando('Abrindo…');
-    try {
-      if (!(S.storage && S.enviando)) {           // se um envio continuou por trás, reaproveita a conexão
-        S.storage = Storage.fromJSON(sess.s);
-        await S.storage.reload();
-      }
-      S.nome = sess.nome;
-      await posLogin();
-    } catch (e) {
-      console.warn(e);
-      if (/ESID|-15|ENOENT|-9|EKEY/.test(String(e?.message))) { localStorage.removeItem(CH_SESS); telaLogin(); return; }
-      app.innerHTML = `<div class="tela-c trava"><div>${esc(msgErro(e))}<br><br><button class="bt pri" id="tent">Tentar de novo</button></div></div>`;
-      $('#tent').onclick = () => telaPin('abrir');
-    }
-  };
-  $('#ok').onclick = ir;
-  campo.onkeydown = e => { if (e.key === 'Enter') ir(); };
-}
-
-function telaLogin() {
-  modo('escuro');
-  const us = CFG.usuarios;
   app.innerHTML = `
   <div class="login trava">
     <p>Digite sua senha.</p>
@@ -381,31 +323,56 @@ function telaLogin() {
     <button class="bt pri" id="entrar">Entrar</button>
     <div class="erro" id="erro"></div>
   </div>`;
+  const campo = $('#senha');
+  setTimeout(() => campo.focus(), 60);
+  const falha = msg => {
+    if (!$('#entrar')) { telaSenha(); }
+    $('#erro').textContent = msg;
+    $('#entrar').disabled = false; $('#entrar').textContent = 'Entrar';
+  };
   const entrar = async () => {
-    const erro = $('#erro'); erro.textContent = '';
-    const senha = $('#senha').value;
-    if (!senha) { erro.textContent = 'Digite a senha.'; return; }
-    const bt = $('#entrar'); bt.disabled = true; bt.textContent = 'Entrando…';
-    // descobre quem é pela senha: só a credencial certa abre
+    const senha = campo.value;
+    $('#erro').textContent = '';
+    if (!senha) { $('#erro').textContent = 'Digite a senha.'; return; }
+    $('#entrar').disabled = true; $('#entrar').textContent = 'Entrando…';
+
+    // 1) caminho rápido: reabre a sessão guardada neste aparelho
+    const sess = await abrirSessao(senha);
+    if (sess) {
+      try {
+        if (!(S.storage && S.enviando)) {         // se um envio continuou por trás, reaproveita a conexão
+          S.storage = Storage.fromJSON(sess.s);
+          await S.storage.reload();
+        }
+        S.nome = sess.nome;
+        await posLogin();
+        return;
+      } catch (e) {
+        console.warn('sessão guardada não abriu, entrando de novo', e);
+        if (!/ESID|-15|ENOENT|-9|EKEY/.test(String(e?.message))) { falha(msgErro(e)); return; }
+        localStorage.removeItem(CH_SESS);
+      }
+    }
+
+    // 2) primeira vez no aparelho (ou sessão expirada): abre o login do MEGA pela senha
     let cred, quem;
     try {
-      [cred, quem] = await Promise.any(us.map(u => abrirCredenciais(u, senha).then(c => [c, u])));
-    } catch { erro.textContent = 'Senha incorreta.'; bt.disabled = false; bt.textContent = 'Entrar'; return; }
+      [cred, quem] = await Promise.any(CFG.usuarios.map(u => abrirCredenciais(u, senha).then(c => [c, u])));
+    } catch { falha('Senha incorreta.'); campo.value = ''; return; }
     try {
       S.storage = new Storage({ email: cred.email, password: cred.password, userAgent: null });
       cred = null;
       await S.storage.ready;
       S.nome = quem.nome;
-      telaPin('criar');
+      await salvarSessao(senha);
+      await posLogin();
     } catch (e) {
       console.warn(e);
-      erro.textContent = msgErro(e);
-      bt.disabled = false; bt.textContent = 'Entrar';
+      falha(msgErro(e));
     }
   };
   $('#entrar').onclick = entrar;
-  $('#senha').onkeydown = e => { if (e.key === 'Enter') entrar(); };
-  setTimeout(() => $('#senha').focus(), 50);
+  campo.onkeydown = e => { if (e.key === 'Enter') entrar(); };
 }
 
 async function posLogin() {
@@ -504,6 +471,13 @@ async function obterMidia(f, onProg) {
 }
 
 /* ================= bloqueio: volta ao disfarce ================= */
+// Solta a conexão sem encerrar a sessão no MEGA (storage.close() faria logout
+// e obrigaria a digitar a senha de novo; só o botão Sair deve fazer isso).
+function desligarMega() {
+  if (!S.storage) return;
+  try { S.storage.api.close(); } catch {}
+  S.storage = null;
+}
 function bloquear() {
   const naTrava = !!$('.trava');
   if (!S.desbloqueado && !naTrava) return;        // já está nas notas
@@ -516,7 +490,7 @@ function bloquear() {
   document.querySelectorAll('.toast').forEach(t => t.remove());
   cacheLimpar();
   S.album = null; S.lista = [];
-  if (!S.enviando && S.storage) { S.storage.close().catch(() => {}); S.storage = null; }
+  if (!S.enviando) desligarMega();
   history.replaceState({ t: 'notas' }, '');
   telaNotas();
 }
@@ -615,9 +589,7 @@ async function menuGeral() {
     uso = `${tamanho(i.spaceUsed)} de ${tamanho(i.spaceTotal)}`;
   } catch {}
   folha(`<h3>${esc(S.nome)}${uso ? ' · ' + uso + ' usados' : ''}</h3>
-    <button class="it" data-a="pin">Trocar PIN</button>
     <button class="it perigo" data-a="sair">Sair</button>`, async a => {
-      if (a === 'pin') { S.desbloqueado = false; history.replaceState({ t: 'trava' }, ''); telaPin('criar'); }
       if (a === 'sair') {
         localStorage.removeItem(CH_SESS);
         try { await S.storage.close(); } catch {}
@@ -875,7 +847,7 @@ async function enviar(arqs, alb, reduzir) {
   estadoEnvio.total = 0; estadoEnvio.feito = 0;
   mostrarBarraEnvio();
   toast(ok ? `${ok} ${ok === 1 ? 'arquivo enviado' : 'arquivos enviados'}.` : 'Nenhum arquivo enviado.');
-  if (!S.desbloqueado && S.storage) { S.storage.close().catch(() => {}); S.storage = null; return; }
+  if (!S.desbloqueado) { desligarMega(); return; }
   redesenhar();
 }
 
