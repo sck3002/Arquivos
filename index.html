@@ -74,7 +74,41 @@ input:focus{border-color:var(--ac)}
 .vis .vt .info span{color:#bbb}
 .vis .palco{flex:1;display:grid;place-items:center;overflow:hidden}
 .vis .palco img,.vis .palco video{max-width:100%;max-height:100vh;object-fit:contain;display:block}
-.vis.limpo .vt{opacity:0;pointer-events:none}
+.vis .palco video{max-height:calc(100vh - 72px);margin-bottom:60px}   /* controles do vídeo acima da barra de comentários */
+.vis.limpo .vt,.vis.limpo .vb{opacity:0;pointer-events:none}
+/* comentários */
+.vb{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:26px 14px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(#0000,#000d);transition:opacity .2s;display:flex;align-items:center;gap:10px;text-align:left;width:100%;font-size:14px}
+.vb svg{width:22px;height:22px;flex:none;fill:none;stroke:#fff;stroke-width:2;stroke-linejoin:round}
+.vb .ult{flex:1;min-width:0;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vb .ult b{color:#fff;font-weight:500}
+.cmt{position:absolute;left:0;right:0;bottom:0;z-index:5;max-height:72vh;display:flex;flex-direction:column;background:var(--bg2);border-radius:16px 16px 0 0;box-shadow:0 -6px 20px rgba(0,0,0,.5)}
+.cmt .cab{display:flex;align-items:center;padding:6px 6px 6px 16px;border-bottom:1px solid var(--ln);font-weight:500}
+.cmt .cab span{flex:1}
+.cmt .lst{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-height:90px}
+.cmt .vz{color:var(--tx2);text-align:center;padding:24px 0;font-size:14px}
+.bal{max-width:82%;padding:7px 11px;border-radius:14px;background:var(--bg3);align-self:flex-start;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+.bal.meu{align-self:flex-end;background:#2f4fb3}
+.bal small{display:block;font-size:11px;color:#ffffffa0;margin-bottom:2px}
+.cmt .env{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--ln)}
+.cmt textarea{flex:1;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:18px;padding:9px 14px;resize:none;outline:none;max-height:110px;line-height:1.3}
+.cmt textarea:focus{border-color:var(--ac)}
+.cmt .mand{width:40px;height:40px;border-radius:50%;background:var(--ac);display:grid;place-items:center;flex:none}
+.cmt .mand svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.cel .nc{position:absolute;left:5px;bottom:5px;background:#000a;color:#fff;font-size:11px;padding:1px 6px 1px 5px;border-radius:9px;display:flex;align-items:center;gap:3px}
+.cel .nc svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2.4}
+/* conversa livre */
+.ib.ponto{position:relative}
+.ib.ponto::after{content:"";position:absolute;top:8px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--ac);border:2px solid var(--bg)}
+.chat{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.chat .lst{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.chat .dia{align-self:center;color:var(--tx2);font-size:12px;background:var(--bg2);padding:3px 10px;border-radius:10px;margin:8px 0 2px}
+.chat .vz{color:var(--tx2);text-align:center;margin:auto;font-size:14px}
+.chat .env,.cmt .env{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--ln);background:var(--bg2)}
+.chat textarea{flex:1;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:18px;padding:9px 14px;resize:none;outline:none;max-height:110px;line-height:1.3}
+.chat textarea:focus{border-color:var(--ac)}
+.chat .mand{width:40px;height:40px;border-radius:50%;background:var(--ac);display:grid;place-items:center;flex:none}
+.chat .mand svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.bal small.h{text-align:right;margin:2px 0 0}
 .carreg{color:#ccc;font-size:13px;text-align:center}
 .giro{width:30px;height:30px;border:3px solid #fff3;border-top-color:#fff;border-radius:50%;margin:0 auto 10px;animation:g 0.8s linear infinite}
 @keyframes g{to{transform:rotate(360deg)}}
@@ -121,6 +155,8 @@ import { Storage } from 'https://unpkg.com/megajs@1.3.10/dist/main.browser-es.mj
 const CFG = window.GALERIA_CONFIG || null;
 const PASTA_RAIZ = 'Arquivos';
 const PASTA_MINI = '.miniaturas';
+const PASTA_CHAT = '.conversa';     // cada mensagem é uma pastinha vazia com o texto criptografado
+const CH_VISTO = 'notas.v';         // até onde a conversa já foi lida neste aparelho
 const ALBUM_PADRAO = 'Geral';
 const CH_SESS = 'notas.s';        // sessão do MEGA, trancada pela senha de cada um
 const CH_NOTAS = 'notas.itens';   // notas do disfarce
@@ -152,7 +188,10 @@ const ICO = {
   menu: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
   pasta: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>',
   baixar: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
-  lixo: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'
+  lixo: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  balao: '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+  enviar: '<svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7z"/></svg>',
+  fechar: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 };
 const ehImg = f => RX_IMG.test(f.name || '');
 const ehVid = f => RX_VID.test(f.name || '');
@@ -379,6 +418,7 @@ async function posLogin() {
   const st = S.storage;
   S.raiz = (st.root.children || []).find(f => f.directory && f.name === PASTA_RAIZ) || await st.root.mkdir(PASTA_RAIZ);
   S.mini = filhos(S.raiz).find(f => f.directory && f.name === PASTA_MINI) || await S.raiz.mkdir(PASTA_MINI);
+  S.chat = filhos(S.raiz).find(f => f.directory && f.name === PASTA_CHAT) || await S.raiz.mkdir(PASTA_CHAT);
   if (!albuns().length) await S.raiz.mkdir(ALBUM_PADRAO);
   reconstruirMiniMap();
 
@@ -388,6 +428,8 @@ async function posLogin() {
     let t;
     const atualizar = () => { clearTimeout(t); t = setTimeout(() => { if (S.storage !== st) return; reconstruirMiniMap(); redesenhar(); }, 400); };
     st.on('add', atualizar); st.on('delete', atualizar); st.on('move', atualizar); st.on('update', atualizar);
+    // comentário novo do outro lado aparece na hora, com o visualizador aberto
+    st.on('update', f => { if (S.storage === st && S.desbloqueado && S.lista[S.idx] === f && $('.vis')) { barraComentarios(); desenharComentarios(); } });
   }
   S.desbloqueado = true;
   modo('escuro');
@@ -397,10 +439,12 @@ async function posLogin() {
 
 /* ================= dados ================= */
 const filhos = p => (p?.children || []).filter(f => !f.deleted);
-const albuns = () => filhos(S.raiz).filter(f => f.directory && f.name !== PASTA_MINI)
+const albuns = () => filhos(S.raiz).filter(f => f.directory && !f.name.startsWith('.'))
   .sort((a, b) => a.name === ALBUM_PADRAO ? -1 : b.name === ALBUM_PADRAO ? 1 : a.name.localeCompare(b.name, 'pt-BR'));
-const midias = p => filhos(p).filter(ehMidia).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-const todas = () => albuns().flatMap(midias).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+const quando = f => f.attributes?.dt ? f.attributes.dt / 1000 : (f.timestamp || 0);   // data de envio (fixa, em s)
+const comentarios = f => Array.isArray(f.attributes?.cm) ? f.attributes.cm : [];
+const midias = p => filhos(p).filter(ehMidia).sort((a, b) => quando(b) - quando(a));
+const todas = () => albuns().flatMap(midias).sort((a, b) => quando(b) - quando(a));
 function reconstruirMiniMap() {
   S.miniMap.clear();
   for (const f of filhos(S.mini)) S.miniMap.set(f.name.replace(/\.jpg$/, ''), f);
@@ -509,9 +553,10 @@ window.addEventListener('popstate', e => {
     if (st.t !== 'nota') telaNotas();
     return;
   }
-  if (!['albuns', 'album', 'vis'].includes(st.t)) { bloquear(); return; }   // voltar da galeria = esconder
+  if (!['albuns', 'album', 'vis', 'chat'].includes(st.t)) { bloquear(); return; }   // voltar da galeria = esconder
   fecharFolha();
   if (!st.folha) {
+    if (!st.cmt) fecharComentarios();
     if (st.t !== 'vis') fecharVisualizador(true);
     if (st.t === 'albuns') { if (S.album !== null || !$('.albuns')) mostrarAlbuns(); }
     else if (st.t === 'album') { if (!$('.grade') && !$('.vazio')) abrirAlbum(st.id, true); }
@@ -521,8 +566,85 @@ window.addEventListener('popstate', e => {
 function redesenhar() {
   if (!S.desbloqueado) return;
   if ($('.vis')) return;           // não mexe na tela durante o visualizador
+  if ($('.chat')) { desenharChat(); return; }
   if (S.album) abrirAlbum(S.album === 'todos' ? 'todos' : S.album.nodeId, true);
   else mostrarAlbuns();
+}
+
+/* ================= conversa (sem mídia) ================= */
+const mensagens = () => filhos(S.chat).filter(f => f.directory && f.attributes?.x)
+  .sort((a, b) => (a.attributes.t || 0) - (b.attributes.t || 0));
+function chatNaoLido() {
+  const visto = +(localStorage.getItem(CH_VISTO) || 0);
+  return mensagens().some(m => m.attributes.p !== S.nome && m.attributes.t > visto);
+}
+function marcarLido() {
+  const ms = mensagens(); const u = ms[ms.length - 1];
+  if (u) localStorage.setItem(CH_VISTO, String(u.attributes.t));
+}
+function abrirChat() {
+  empurrar({ t: 'chat' });
+  app.innerHTML = `
+    <div class="chat">
+      <div class="topo"><button class="ib" id="cVolt">${ICO.voltar}</button><h1>Conversa</h1></div>
+      <div class="lst" id="chLst"></div>
+      <div class="env"><textarea id="chTxt" rows="1" maxlength="2000" placeholder="Mensagem"></textarea>
+        <button class="mand" id="chEnv">${ICO.enviar}</button></div>
+    </div>`;
+  $('#cVolt').onclick = () => history.back();
+  const ta = $('#chTxt');
+  ta.oninput = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 110) + 'px'; };
+  ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); enviarMensagem(); } };
+  $('#chEnv').onclick = enviarMensagem;
+  $('.envio')?.remove();
+  desenharChat();
+}
+function rotuloDia(ms) {
+  const d = new Date(ms), h = new Date(), o = new Date(Date.now() - 864e5);
+  if (d.toDateString() === h.toDateString()) return 'Hoje';
+  if (d.toDateString() === o.toDateString()) return 'Ontem';
+  return d.toLocaleDateString('pt-BR');
+}
+function desenharChat() {
+  const l = $('#chLst');
+  if (!l) return;
+  const ms = mensagens();
+  const noFim = l.scrollHeight - l.scrollTop - l.clientHeight < 80;
+  let dia = '', html = '';
+  for (const m of ms) {
+    const a = m.attributes, r = rotuloDia(a.t);
+    if (r !== dia) { dia = r; html += `<div class="dia">${r}</div>`; }
+    const hora = new Date(a.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    html += `<div class="bal${a.p === S.nome ? ' meu' : ''}" data-id="${m.nodeId}">${esc(a.x)}<small class="h">${hora}</small></div>`;
+  }
+  l.innerHTML = html || '<div class="vz">Nenhuma mensagem ainda.</div>';
+  if (noFim || !l.dataset.ok) l.scrollTop = l.scrollHeight;
+  l.dataset.ok = 1;
+  marcarLido();
+  // segurar a própria mensagem permite apagar
+  l.querySelectorAll('.bal.meu').forEach(b => b.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const m = S.storage.files[b.dataset.id];
+    if (!m) return;
+    folha(`<h3>Apagar esta mensagem?</h3>
+      <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Apagar</button></div>`,
+      async a => { if (a === 'ok') { try { await m.delete(true); desenharChat(); } catch (er) { toast(msgErro(er)); } } });
+  }));
+}
+let enviandoMsg = false;
+async function enviarMensagem() {
+  const ta = $('#chTxt');
+  const x = (ta?.value || '').trim().slice(0, 2000);
+  if (!x || enviandoMsg) return;
+  enviandoMsg = true; $('#chEnv').style.opacity = .5;
+  try {
+    const t = Date.now();
+    await S.chat.mkdir({ name: String(t), attributes: { p: S.nome, t, x } });
+    ta.value = ''; ta.oninput();
+    desenharChat();
+    const l = $('#chLst'); if (l) l.scrollTop = l.scrollHeight;
+  } catch (e) { toast(msgErro(e)); }
+  finally { enviandoMsg = false; if ($('#chEnv')) $('#chEnv').style.opacity = 1; }
 }
 
 /* ================= tela: álbuns ================= */
@@ -537,6 +659,7 @@ function mostrarAlbuns() {
     </button>`;
   app.innerHTML = `
     <div class="topo"><h1>Arquivos</h1>
+      <button class="ib${chatNaoLido() ? ' ponto' : ''}" id="abrChat">${ICO.balao}</button>
       <button class="ib" id="menu">${ICO.menu}</button></div>
     <div class="albuns">
       ${card('todos', 'Todos', total)}
@@ -556,6 +679,7 @@ function mostrarAlbuns() {
       if (a === 'enviar') escolherAlbumParaEnviar();
     });
   $('#menu').onclick = menuGeral;
+  $('#abrChat').onclick = abrirChat;
   mostrarBarraEnvio();
 }
 
@@ -612,7 +736,7 @@ function abrirAlbum(id, semHistorico) {
     <div class="topo"><button class="ib" id="volt">${ICO.voltar}</button>
       <h1>${esc(nome)}<span class="sub">${itens.length}</span></h1>
       ${alb === 'todos' ? '' : `<button class="ib" id="menuAlb">${ICO.menu}</button>`}</div>
-    ${itens.length ? `<div class="grade">${itens.map((f, i) => `<button class="cel${ehVid(f) ? ' vid' : ''}" data-i="${i}"></button>`).join('')}</div>`
+    ${itens.length ? `<div class="grade">${itens.map((f, i) => `<button class="cel${ehVid(f) ? ' vid' : ''}" data-i="${i}">${comentarios(f).length ? `<span class="nc">${ICO.balao}${comentarios(f).length}</span>` : ''}</button>`).join('')}</div>`
       : `<div class="vazio">Nada aqui ainda.<br>Toque no + para enviar.</div>`}
     ${alb === 'todos' ? '' : `<button class="fab" id="fab">${ICO.mais}</button>`}`;
   window.scrollTo(0, scroll);
@@ -667,15 +791,17 @@ function abrirVisualizador(i) {
       <div class="info"><b id="vNome"></b><span id="vMeta"></span></div>
       <button class="ib" id="vBaixar">${ICO.baixar}</button>
       <button class="ib" id="vDel">${ICO.lixo}</button></div>
-    <div class="palco" id="palco"></div>`;
+    <div class="palco" id="palco"></div>
+    <button class="vb" id="vCom"></button>`;
   document.body.appendChild(v);
+  $('#vCom').onclick = abrirComentarios;
   document.body.style.overflow = 'hidden';
   $('#vVolt').onclick = () => history.back();
   $('#vBaixar').onclick = salvarNoAparelho;
   $('#vDel').onclick = excluirAtual;
   // gestos: deslizar para os lados troca de item, toque esconde a barra
   let x0 = null, y0 = 0;
-  v.addEventListener('touchstart', e => { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true });
+  v.addEventListener('touchstart', e => { if (e.touches.length === 1 && !e.target.closest('.cmt')) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } else x0 = null; }, { passive: true });
   v.addEventListener('touchend', e => {
     if (x0 === null) return;
     const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
@@ -687,11 +813,12 @@ function abrirVisualizador(i) {
   exibir();
 }
 function teclas(e) {
-  if (!$('.vis')) return;
+  if (!$('.vis') || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'ArrowRight') mover(1);
   if (e.key === 'ArrowLeft') mover(-1);
 }
 function mover(d) {
+  if ($('.cmt')) return;
   const n = S.idx + d;
   if (n < 0 || n >= S.lista.length) return;
   S.idx = n; exibir();
@@ -704,7 +831,9 @@ async function exibir() {
   if (urlAtual) { URL.revokeObjectURL(urlAtual); urlAtual = null; }
   $('#vNome').textContent = `${S.idx + 1} de ${S.lista.length}`;
   const por = f.attributes?.por ? f.attributes.por + ' · ' : '';
-  $('#vMeta').textContent = por + dataBR(f.timestamp);
+  $('#vMeta').textContent = por + dataBR(quando(f));
+  barraComentarios();
+  if ($('.cmt')) desenharComentarios();
   // mostra a miniatura enquanto carrega
   const mini = urlsMini.get(f.nodeId);
   palco.innerHTML = `${mini && ehImg(f) ? `<img src="${mini}" style="filter:blur(2px);width:100%;height:auto">` : ''}
@@ -723,6 +852,73 @@ async function exibir() {
   const prox = S.lista[S.idx + 1];
   if (prox && ehImg(prox)) cacheGet('f:' + prox.nodeId).then(c => { if (!c) obterMidia(prox).catch(() => {}); });
 }
+/* ================= comentários ================= */
+// Ficam no próprio arquivo no MEGA (atributo "cm"), criptografados junto com ele.
+const MAX_COM = 100, MAX_TXT = 500;
+function barraComentarios() {
+  const b = $('#vCom'); const f = S.lista[S.idx];
+  if (!b || !f) return;
+  const cm = comentarios(f), u = cm[cm.length - 1];
+  b.innerHTML = `${ICO.balao}<span class="ult">${cm.length
+    ? esc(u.x)
+    : 'Comentar'}</span>${cm.length > 1 ? `<small style="color:#bbb">${cm.length}</small>` : ''}`;
+}
+function abrirComentarios() {
+  const v = $('.vis');
+  if (!v || $('.cmt')) return;
+  empurrar({ t: 'vis', cmt: true });
+  const c = document.createElement('div');
+  c.className = 'cmt';
+  c.innerHTML = `
+    <div class="cab"><span>Comentários</span><button class="ib" id="cFech">${ICO.fechar}</button></div>
+    <div class="lst" id="cLst"></div>
+    <div class="env"><textarea id="cTxt" rows="1" maxlength="${MAX_TXT}" placeholder="Escreva um comentário"></textarea>
+      <button class="mand" id="cEnv">${ICO.enviar}</button></div>`;
+  v.appendChild(c);
+  $('#cFech').onclick = () => history.back();
+  const ta = $('#cTxt');
+  ta.oninput = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 110) + 'px'; };
+  ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); enviarComentario(); } };
+  $('#cEnv').onclick = enviarComentario;
+  desenharComentarios();
+}
+function fecharComentarios() { $('.cmt')?.remove(); }
+function desenharComentarios() {
+  const l = $('#cLst'); const f = S.lista[S.idx];
+  if (!l || !f) return;
+  const cm = comentarios(f);
+  l.innerHTML = cm.length
+    ? cm.map((c, i) => `<div class="bal${c.p === S.nome ? ' meu' : ''}" data-i="${i}"><small>${dataBR(c.t)}</small>${esc(c.x)}</div>`).join('')
+    : '<div class="vz">Nenhum comentário ainda.</div>';
+  l.scrollTop = l.scrollHeight;
+  // segurar o próprio comentário permite apagar
+  l.querySelectorAll('.bal.meu').forEach(b => b.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const i = +b.dataset.i;
+    folha(`<h3>Apagar este comentário?</h3>
+      <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Apagar</button></div>`,
+      a => { if (a === 'ok') gravarComentarios(f, cm2 => cm2.filter((c, j) => !(j === i && c.p === S.nome && c.t === cm[i].t))); });
+  }));
+}
+async function gravarComentarios(f, mudar) {
+  const novos = mudar(comentarios(f).slice()).slice(-MAX_COM);
+  const extra = f.attributes?.dt ? {} : { dt: Math.round(quando(f) * 1000) };   // fixa a data de envio antes de mexer
+  await f.setAttributes({ cm: novos, ...extra });
+  if (S.lista[S.idx] === f) { barraComentarios(); desenharComentarios(); }
+}
+let gravandoCom = false;
+async function enviarComentario() {
+  const ta = $('#cTxt'); const f = S.lista[S.idx];
+  const x = (ta?.value || '').trim().slice(0, MAX_TXT);
+  if (!x || !f || gravandoCom) return;
+  gravandoCom = true; $('#cEnv').style.opacity = .5;
+  try {
+    await gravarComentarios(f, cm => [...cm, { p: S.nome, t: Math.floor(Date.now() / 1000), x }]);
+    ta.value = ''; ta.oninput();
+  } catch (e) { toast(msgErro(e)); }
+  finally { gravandoCom = false; if ($('#cEnv')) $('#cEnv').style.opacity = 1; }
+}
+
 function fecharVisualizador(semHistorico) {
   const v = $('.vis');
   if (!v) return;
@@ -822,7 +1018,7 @@ inp.onchange = () => {
 const estadoEnvio = { total: 0, feito: 0, pct: 0, nome: '' };
 function mostrarBarraEnvio() {
   let b = $('.envio');
-  if (!S.enviando || !S.desbloqueado) { b?.remove(); return; }
+  if (!S.enviando || !S.desbloqueado || $('.chat')) { b?.remove(); return; }
   if (!b) { b = document.createElement('div'); b.className = 'envio'; b.innerHTML = '<span></span><div class="bar"><i></i></div>'; document.body.appendChild(b); }
   b.querySelector('span').textContent = `Enviando ${estadoEnvio.feito + 1} de ${estadoEnvio.total}… ${Math.round(estadoEnvio.pct * 100)}%`;
   b.querySelector('i').style.width = ((estadoEnvio.feito + estadoEnvio.pct) / estadoEnvio.total * 100) + '%';
@@ -861,7 +1057,7 @@ async function enviarUm(arq, alb, reduzir) {
   if (!video && !RX_IMG.test(nome)) nome += '.jpg';
   const mini = await gerarMiniatura(corpo, video).catch(() => null);
 
-  const up = alb.upload({ name: nome, size: corpo.size, attributes: { por: S.nome } });
+  const up = alb.upload({ name: nome, size: corpo.size, attributes: { por: S.nome, dt: Date.now() } });
   up.on('progress', p => { estadoEnvio.pct = p.bytesUploaded / (p.bytesTotal || 1); mostrarBarraEnvio(); });
   const fim = up.complete;
   // envia em pedaços, sem carregar o vídeo inteiro na memória
