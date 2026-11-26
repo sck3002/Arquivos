@@ -165,6 +165,9 @@ const FOTO_MAX = 2560;          // lado maior da foto reduzida (px)
 const FOTO_QUAL = 0.85;         // qualidade JPEG da foto reduzida
 const MINI_LADO = 360;          // miniatura quadrada (px)
 const MEM_FOTOS = 15;            // fotos mantidas só na memória (nada é gravado no aparelho)
+const URL_MB = 'https://unpkg.com/mediabunny@1.66.4/dist/bundles/mediabunny.min.mjs';  // conversor de vídeo (carrega só ao enviar vídeo)
+const VID_LADO = 1280;           // vídeo reduzido: 720p (lado maior 1280)
+const VID_BITRATE = 2500000;     // ~2,5 Mbps: boa qualidade na tela do celular
 const RX_IMG = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
 const RX_VID = /\.(mp4|mov|m4v|webm|3gp|mkv)$/i;
 
@@ -533,6 +536,7 @@ function bloquear() {
   $('.envio')?.remove();
   document.querySelectorAll('.toast').forEach(t => t.remove());
   cacheLimpar();
+  falarComSW({ tipo: 'limpar' }, 500);
   S.album = null; S.lista = [];
   if (!S.enviando) desligarMega();
   history.replaceState({ t: 'notas' }, '');
@@ -838,6 +842,34 @@ async function exibir() {
   const mini = urlsMini.get(f.nodeId);
   palco.innerHTML = `${mini && ehImg(f) ? `<img src="${mini}" style="filter:blur(2px);width:100%;height:auto">` : ''}
     <div class="carreg" style="position:absolute"><div class="giro"></div><span id="pct">Carregando…</span></div>`;
+  if (ehVid(f) && !mem.has('f:' + f.nodeId) && await prepararStream(f)) {
+    if (meu !== tokenVis || !$('#palco')) return;
+    palco.innerHTML = `<video src="__v/${f.nodeId}" controls autoplay playsinline></video>`;
+    const vid = palco.querySelector('video');
+    let tentou = false;
+    vid.onerror = async () => {
+      if (meu !== tokenVis) return;
+      const pos = vid.currentTime || 0;
+      if (!tentou && await prepararStream(f)) {      // link do MEGA expirou ou o SW reiniciou: tenta de novo
+        tentou = true;
+        if (meu !== tokenVis) return;
+        vid.src = `__v/${f.nodeId}?r=${Date.now()}`;
+        vid.currentTime = pos;
+        return;
+      }
+      tocarCompleto(f, meu);                          // plano B: baixa inteiro, como antes
+    };
+    return;
+  }
+  tocarCompleto(f, meu);
+  // pré-carrega a próxima foto em segundo plano
+  const prox = S.lista[S.idx + 1];
+  if (prox && ehImg(prox)) cacheGet('f:' + prox.nodeId).then(c => { if (!c) obterMidia(prox).catch(() => {}); });
+}
+async function tocarCompleto(f, meu) {
+  const palco = $('#palco');
+  if (!palco || meu !== tokenVis) return;
+  if (!palco.querySelector('.carreg')) palco.innerHTML = `<div class="carreg"><div class="giro"></div><span id="pct">Carregando…</span></div>`;
   try {
     const blob = await obterMidia(f, p => { if (meu === tokenVis && $('#pct')) $('#pct').textContent = Math.round(p * 100) + '%'; });
     if (meu !== tokenVis || !$('#palco')) return;
@@ -848,9 +880,6 @@ async function exibir() {
     if (meu !== tokenVis) return;
     palco.innerHTML = `<div class="carreg">${esc(msgErro(e))}</div>`;
   }
-  // pré-carrega a próxima foto em segundo plano
-  const prox = S.lista[S.idx + 1];
-  if (prox && ehImg(prox)) cacheGet('f:' + prox.nodeId).then(c => { if (!c) obterMidia(prox).catch(() => {}); });
 }
 /* ================= comentários ================= */
 // Ficam no próprio arquivo no MEGA (atributo "cm"), criptografados junto com ele.
@@ -1006,22 +1035,22 @@ inp.onchange = () => {
   setTimeout(() => { S.ignorarOculto = false; }, 1500);
   const arqs = [...inp.files];
   if (!arqs.length || !destinoEnvio) return;
-  const temFoto = arqs.some(a => a.type.startsWith('image/'));
-  if (!temFoto) { enviar(arqs, destinoEnvio, true); return; }
+  const temVideo = arqs.some(a => a.type.startsWith('video/') || RX_VID.test(a.name));
   folha(`<h3>Enviar ${arqs.length} ${arqs.length === 1 ? 'arquivo' : 'arquivos'} para "${esc(destinoEnvio.name)}"</h3>
-    <label class="chk"><input type="checkbox" id="reduzir" checked> Reduzir fotos (economiza espaço, qualidade de tela cheia)</label>
+    <label class="chk"><input type="checkbox" id="reduzir" checked> Reduzir ${temVideo ? 'fotos e vídeos (vídeos em 720p: envio e reprodução bem mais rápidos)' : 'fotos (economiza espaço, qualidade de tela cheia)'}</label>
     <div class="acoes"><button class="bt sec" data-a="x">Cancelar</button><button class="bt pri" data-a="ok">Enviar</button></div>`, (a, v) => {
       if (a === 'ok') enviar(arqs, destinoEnvio, v.reduzir !== false);
     });
 };
 
-const estadoEnvio = { total: 0, feito: 0, pct: 0, nome: '' };
+const estadoEnvio = { total: 0, feito: 0, pct: 0, nome: '', fase: 'Enviando' };
 function mostrarBarraEnvio() {
   let b = $('.envio');
   if (!S.enviando || !S.desbloqueado || $('.chat')) { b?.remove(); return; }
   if (!b) { b = document.createElement('div'); b.className = 'envio'; b.innerHTML = '<span></span><div class="bar"><i></i></div>'; document.body.appendChild(b); }
-  b.querySelector('span').textContent = `Enviando ${estadoEnvio.feito + 1} de ${estadoEnvio.total}… ${Math.round(estadoEnvio.pct * 100)}%`;
-  b.querySelector('i').style.width = ((estadoEnvio.feito + estadoEnvio.pct) / estadoEnvio.total * 100) + '%';
+  b.querySelector('span').textContent = `${estadoEnvio.fase} ${estadoEnvio.feito + 1} de ${estadoEnvio.total}… ${Math.round(estadoEnvio.pct * 100)}%`;
+  const peso = estadoEnvio.fase === 'Enviando' ? estadoEnvio.pct : 0;
+  b.querySelector('i').style.width = ((estadoEnvio.feito + peso) / estadoEnvio.total * 100) + '%';
 }
 
 const filaEnvio = [];
@@ -1054,6 +1083,12 @@ async function enviarUm(arq, alb, reduzir) {
     const r = await reduzirFoto(arq).catch(() => null);
     if (r && r.size < arq.size) { corpo = r; nome = nome.replace(/\.[^.]+$/, '') + '.jpg'; }
   }
+  if (video && reduzir) {
+    estadoEnvio.fase = 'Preparando vídeo'; estadoEnvio.pct = 0; mostrarBarraEnvio();
+    const r = await comprimirVideo(arq, p => { estadoEnvio.pct = p; mostrarBarraEnvio(); }).catch(e => { console.warn('conversão', e); return null; });
+    if (r && r.size < arq.size * 0.85) { corpo = r; nome = nome.replace(/\.[^.]+$/, '') + '.mp4'; }
+  }
+  estadoEnvio.fase = 'Enviando'; estadoEnvio.pct = 0; mostrarBarraEnvio();
   if (!video && !RX_IMG.test(nome)) nome += '.jpg';
   const mini = await gerarMiniatura(corpo, video).catch(() => null);
 
@@ -1076,6 +1111,68 @@ async function enviarUm(arq, alb, reduzir) {
     const buf = new Uint8Array(await mini.arrayBuffer());
     try { const mf = await S.mini.upload({ name: novo.nodeId + '.jpg' }, buf).complete; S.miniMap.set(novo.nodeId, mf); } catch (e) { console.warn('mini up', e); }
   }
+}
+
+/* ================= vídeo: reduzir para 720p no próprio aparelho ================= */
+// Usa o codificador de vídeo do celular (WebCodecs). Se o aparelho não suportar,
+// ou o vídeo já for leve, devolve null e o original é enviado.
+async function comprimirVideo(arq, onProg) {
+  if (!('VideoEncoder' in window)) return null;
+  const MB = await import(URL_MB);
+  const input = new MB.Input({ source: new MB.BlobSource(arq), formats: MB.ALL_FORMATS });
+  const vt = await input.getPrimaryVideoTrack();
+  if (!vt) return null;
+  const dur = await input.computeDuration();
+  const w = vt.displayWidth, h = vt.displayHeight;
+  // já é leve (baixa resolução e baixa taxa): não vale converter
+  if (dur > 0 && (arq.size * 8 / dur) < VID_BITRATE * 1.4 && Math.max(w, h) <= VID_LADO * 1.1) return null;
+  const k = Math.min(1, VID_LADO / Math.max(w, h));
+  const W = Math.round(w * k / 2) * 2, H = Math.round(h * k / 2) * 2;
+  if (!(await MB.canEncodeVideo('avc', { width: W, height: H, bitrate: VID_BITRATE }))) return null;
+  const at = await input.getPrimaryAudioTrack();
+  const opcoesVideo = { ...(w >= h ? { width: W } : { height: H }), codec: 'avc', bitrate: VID_BITRATE };
+  const montar = async audio => {
+    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+    const conv = await MB.Conversion.init({ input, output, tracks: 'primary', video: opcoesVideo, audio, showWarnings: false });
+    return { output, conv };
+  };
+  // 1ª tentativa: áudio AAC (padrão do celular) copiado como está, sem reconverter
+  let { output, conv } = await montar(at && at.codec === 'aac' ? { codec: 'aac' } : { discard: true });
+  const perdeuAudio = at && !conv.utilizedTracks.some(t => t.type === 'audio');
+  if (perdeuAudio || (at && at.codec !== 'aac')) {
+    // 2ª: reconverte o áudio para um formato que o aparelho consiga gerar
+    const ac = await MB.getFirstEncodableAudioCodec(['aac', 'opus'], { numberOfChannels: 2, sampleRate: 48000, bitrate: 128000 });
+    if (ac) ({ output, conv } = await montar({ codec: ac, bitrate: 128000 }));
+  }
+  if (!conv.isValid) return null;
+  conv.onProgress = p => onProg && onProg(p);
+  await conv.execute();
+  return new Blob([output.target.buffer], { type: 'video/mp4' });
+}
+
+/* ================= vídeo: tocar enquanto baixa ================= */
+// O service worker busca do MEGA só o trecho que o player pede e decifra na hora.
+function falarComSW(msg, espera = 1500) {
+  const sw = navigator.serviceWorker?.controller;
+  if (!sw) return Promise.resolve(null);
+  return new Promise(res => {
+    const ch = new MessageChannel();
+    const t = setTimeout(() => res(null), espera);
+    ch.port1.onmessage = e => { clearTimeout(t); res(e.data); };
+    sw.postMessage(msg, [ch.port2]);
+  });
+}
+async function prepararStream(f) {
+  if (!navigator.serviceWorker?.controller || !f.key || f.key.length < 32) return false;
+  try {
+    const r = await S.storage.api.request({ a: 'g', g: 1, n: f.nodeId, ssl: 2 });
+    if (!r || typeof r.g !== 'string' || !/^https?:/.test(r.g)) return false;
+    const k = f.key, aes = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) aes[i] = k[i] ^ k[i + 16];
+    const ok = await falarComSW({ tipo: 'video', id: f.nodeId, url: r.g, size: r.s, mime: tipoMime(f) === 'video/quicktime' ? 'video/mp4' : tipoMime(f),
+      aes: Array.from(aes), nonce: Array.from(k.slice(16, 24)) });
+    return !!ok?.ok;
+  } catch (e) { console.warn('stream', e); return false; }
 }
 
 /* ================= imagens: reduzir e miniatura ================= */
